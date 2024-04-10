@@ -1,13 +1,26 @@
-Persona:
-Foodies und Gourmet-Liebhaber von jung bis alt, von jeder enthischen Herkunft, die gerne ein App benutzen und den Übersicht über ihre Essensvorlieben mit einem Klick abrufen können. Personen, die
-auch gerne ihre Meinungen/Bewertungen mir anderen teilen möchten (muss man nicht, kann man aber), ihren Freunden und Familienmitglieder Essentipps geben möchten, aber auch eine Geschenksidee liefert 
-(falls man beispielsweise der Person eine Freude machen möchte und ihr ihr Lieblingsgetränk/gericht mitnehmen/machen möchte). 
 
+# Persona:
+## Zielgruppe:
+Foodies und Gourmet-Liebhaber, unabhängig von ihrer ethnischen Gruppe, Geschlecht, Aussehen und Alter
 
+## Bedürfnisse und Merkmale:
+- Genießen von Essen und Getränken aus verschiedenen Kulturen und Küchen.
+- Die Möglichkeit, ihre Essensvorlieben einfach zu verwalten und abzurufen.
+- Teilen von Meinungen und Bewertungen mit anderen Nutzern, um Empfehlungen auszutauschen.
+- Geben von Essentipps an Freunde und Familienmitglieder sowie Bereitstellung von Geschenkideen.
+- Erfassen persönlicher Bewertungen für zukünftige Referenzen.
 
-Menschen, die gerne Gerichte und Getränke ausprobieren, diese bewerten möchten und ihr persönliche Bewertunh abgespeichert haben möchten.
-Reisende, die gerne in die verschiedensten Küchen der Welt reinschauen möchten, die sich für kulinarische Trends interessieren und für sich selbst ein "Food"-Diary kreieren möchten.
-Menschen, die gerne ihre Essenserlebnisse mit anderen teilen und Empfehlungen erhalten möchten.
-Beispielsweise Wein-Feinschmecker, die gerne Weine aus aller Welt probieren möchten und für sich die besten Weine entdecken möchte, aber schnell mal die Übersicht bei diesem grossen Angebot verliert.
-Leute
+## Interessen:
+- Erkunden und Bewerten von Gerichten und Getränken aus verschiedenen Restaurants und Orten.
+- Einblick in kulinarische Trends und Entdecken neuer Geschmackserlebnisse.
+- Schaffen eines persönlichen "Food"-Diarys, um Essenserlebnisse festzuhalten und zu organisieren.
+- Teilen von Essenserlebnissen und Empfehlungen mit anderen Nutzern.
+- Entdecken und Bewerten von Weinen aus aller Welt, insbesondere für Weinliebhaber.
+
+## Herausforderungen:
+- Die Vielfalt der kulinarischen Welt und das Angebot an Gerichten und Getränken können überwältigend sein.
+- Schwierigkeiten seine Vorlieben bei der grossen Auswahl im Kopf zu behalten
+- Das Bedürfnis nach einfachen und effektiven Möglichkeiten, Essenserlebnisse zu verwalten und zu teilen.
+- 
 ![persona](Wirefram1.jpg)
+![persona](Wirefram2.jpg)
