@@ -22,8 +22,4 @@ Foodies und Gourmet-Liebhaber, unabhängig von ihrer ethnischen Gruppe, Geschlec
 - Schwierigkeiten seine Vorlieben bei der grossen Auswahl im Kopf zu behalten
 - Das Bedürfnis nach einfachen und effektiven Möglichkeiten, Essenserlebnisse zu verwalten und zu teilen.
 - 
-![persona](Wirefram1.jpg)
-img[alt=drawing] { width: 200px; }
-
-
-![persona](Wirefram2.jpg)
+![persona](Wirefram1.jpg =250x)
