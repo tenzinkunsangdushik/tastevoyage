@@ -10,3 +10,4 @@ Reisende, die gerne in die verschiedensten Küchen der Welt reinschauen möchten
 Menschen, die gerne ihre Essenserlebnisse mit anderen teilen und Empfehlungen erhalten möchten.
 Beispielsweise Wein-Feinschmecker, die gerne Weine aus aller Welt probieren möchten und für sich die besten Weine entdecken möchte, aber schnell mal die Übersicht bei diesem grossen Angebot verliert.
 Leute
+![persona](Wirefram1.jpg)
