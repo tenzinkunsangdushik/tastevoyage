@@ -29,7 +29,7 @@ Aus unserem Nutzertest möchten wir zu den folgenden Punkten lernen:
 
 ## Was war schlecht?
 - Die Teilen-Funktion mit Freunden wird nicht explizit erwähnt und muss noch hinzugefügt werden
-- 
+
  
 ## Neue Ideen:
 - Erstellen eines Erinnerungssystems für die Bewertung von Gerichten und Getränken könnte die Benutzer dazu ermutigen, die App regelmäßig zu nutzen.
