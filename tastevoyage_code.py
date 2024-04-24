@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import hashlib
 
-# Hilfsfunktionen
+
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
 
@@ -26,7 +26,7 @@ def verify_login(username, password, users_df):
             return True
     return False
 
-# Datenpfade und Initialisierung
+
 DATA_PATH = 'produkte.csv'
 IMAGE_FOLDER = 'produkt_bilder'
 USERS_DATA_PATH = 'users.csv'
@@ -38,7 +38,7 @@ if not os.path.exists(USERS_DATA_PATH):
 else:
     users_df = pd.read_csv(USERS_DATA_PATH)
 
-# Authentifizierungsdialog im Zentrum
+
 def auth_dialog(users_df):
     with st.container():
         col1, col2, col3 = st.columns([1, 2, 1])
@@ -64,7 +64,7 @@ def auth_dialog(users_df):
                     st.session_state['username'] = username
                     placeholder.empty()
 
-# Hauptanwendung
+
 def main_app():
     def speichern_oder_aktualisieren(df):
         df.to_csv(DATA_PATH, index=False, header=True)
@@ -86,7 +86,7 @@ def main_app():
         df.drop(index, inplace=True)
         speichern_oder_aktualisieren(df)
 
-    # ... [Rest des Hauptanwendungscodes]
+ 
     st.markdown("""
 <style>
 .card {
@@ -179,24 +179,21 @@ if 'show_form' in st.session_state and st.session_state['show_form']:
             speichern_oder_aktualisieren(df)
             st.success("Produkt erfolgreich gespeichert!")
             st.session_state['show_form'] = False
-# Überprüfen, ob Benutzer angemeldet ist
+
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# Platzhalter für das Authentifizierungsfenster
 placeholder = st.empty()  
 
 # Überprüfen, ob Benutzer angemeldet ist
 if 'logged_in' not in st.session_state:
     st.session_state['logged_in'] = False
 
-# Authentifizierungsfenster oder Hauptanwendung anzeigen
 if not st.session_state['logged_in']:
     auth_dialog(users_df)
 else:
     main_app()
 
-# Seitenleiste mit Logout-Funktion, falls eingeloggt
 if st.session_state['logged_in']:
     if st.sidebar.button('Abmelden'):
         st.session_state['logged_in'] = False
