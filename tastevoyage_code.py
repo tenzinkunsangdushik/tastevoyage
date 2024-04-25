@@ -42,26 +42,20 @@ def register_user(username, password, benutzer_df):
         return True
     return False
 
+
 def bild_speichern(bild, name):
-    print("Bild wird hochgeladen:", bild)  # Ausgabe zum Überprüfen
     if bild is not None:
         bild_filename = name + "_" + bild.name
         bild_path = os.path.join(BILD_ORDNER, bild_filename)
-        if os.path.exists(bild_path):
-            os.remove(bild_path)  # Lösche das vorhandene Bild, falls vorhanden
         with open(bild_path, "wb") as f:
             f.write(bild.getbuffer())
-        if os.path.exists(bild_path):
-            return bild_path
-        else:
-            st.error("Fehler beim Speichern des Bildes.")
-        st.experimental_rerun()
+        return os.path.join(BILD_ORDNER, bild_filename)
     return ""
 
 def bild_und_eintrag_loeschen(index, df):
-    bildpfad = df.iloc[index]['Bildpfad']
-    if bildpfad and os.path.exists(bildpfad):
-        os.remove(bildpfad)
+    bildpath = df.iloc[index]['Bildpfad']
+    if bildpath and os.path.exists(bildpath):
+        os.remove(bildpath)
     df.drop(index, inplace=True)
     speichern_oder_aktualisieren(df)
 
@@ -87,20 +81,19 @@ def hauptanwendung(benutzer_df):
                     if i + idx < len(df):
                         with cols[idx]:
                             item = df.iloc[i + idx]
-                            bild_path = bild_speichern(item['Bild'], item['Name']) if 'Bild' in item and item['Bild'] else ""
-                            if bild_path:
-                                st.image(bild_path, width=150, caption=item['Name'])
+                            if item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden ist
+                                st.image(item['Bildpfad'], width=150, caption=item['Name'])
                             else:
                                 st.write("Kein Bild vorhanden")
                             st.write(f"Kategorie: {item['Kategorie']}")
                             st.write(f"Bewertung: {item['Bewertung']}")
                             st.write(f"Notizen: {item['Notizen']}")
-                            option = st.selectbox("Optionen:", ["Aktion wählen", "Bearbeiten", "Löschen"], key=f"optionen{item.name}")
+                            option = st.selectbox("Optionen:", ["Aktion wählen", "Bearbeiten", "Löschen"], key=f"optionen{i + idx}")
                             if option == "Bearbeiten":
                                 st.session_state['show_form'] = True
-                                st.session_state['edit_index'] = item.name
+                                st.session_state['edit_index'] = i + idx
                             elif option == "Löschen":
-                                bild_und_eintrag_loeschen(item.name, df)
+                                bild_und_eintrag_loeschen(i + idx, df)
                                 st.experimental_rerun()
 
     if 'show_form' in st.session_state and st.session_state['show_form']:
@@ -168,3 +161,4 @@ if st.session_state.get('logged_in'):
         st.session_state['username'] = ''
         st.session_state['authentication_status'] = None
         st.experimental_rerun()
+
