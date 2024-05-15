@@ -1,164 +1,129 @@
+##############################################################################################################
+# Title: Multi-User Login and Registration Example
+# Author: Samuel Wehrli, Dominik Kunz
+# Date: 05.05.2024
+# Institution: ZHAW - Institute for Computational Health
+#
+# Description: 
+# A Streamlit app that allows multiple users to login and register. 
+# The app uses a CSV file to store user credentials and pushes it to a seperate Github repository. 
+# The bcrypt library hashes the passwords and the binascii library to convert the hashed password to 
+# a hexadecimal string. The app uses the GithubContents class from the github_contents.py file to 
+# interact with the Github data repository. The st.secrets object stores the Github owner, repository, 
+# and token which are used to authenticate the Github data repository.
+#
+# To run the app, install the required libraries using: pip install bcrypt binascii
+##############################################################################################################
+
+
+import binascii
 import streamlit as st
 import pandas as pd
-import os
-import hashlib
-import smtplib
-from email.message import EmailMessage
+from github_contents import GithubContents
+import bcrypt
 
-# Konfiguration und Hilfsfunktionen
-SMTP_SERVER = 'smtp.example.com'
-SMTP_PORT = 587
-EMAIL_ADRESSE = 'your_email@example.com'
-EMAIL_PASSWORT = 'your_password'
-DATEN_PFAD = 'produkte.csv'
-BILD_ORDNER = 'produkt_bilder'
-BENUTZER_DATEN_PFAD = 'users.csv'
+# Set constants
+DATA_FILE = "MyLoginTable.csv"
+DATA_COLUMNS = ['username', 'name', 'password']
 
-# Datenpfade und Initialisierung
-if not os.path.exists(BILD_ORDNER):
-    os.makedirs(BILD_ORDNER)
-if not os.path.exists(BENUTZER_DATEN_PFAD):
-    benutzer_df = pd.DataFrame(columns=['username', 'password'])
-    benutzer_df.to_csv(BENUTZER_DATEN_PFAD, index=False)
-else:
-    benutzer_df = pd.read_csv(BENUTZER_DATEN_PFAD)
+def login_page():
+    """ Login an existing user. """
+    st.title("Login")
+    with st.form(key='login_form'):
+        st.session_state['username'] = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        if st.form_submit_button("Login"):
+            authenticate(st.session_state.username, password)
 
-def make_hashes(password):
-    return hashlib.sha256(str.encode(password)).hexdigest()
+def register_page():
+    """ Register a new user. """
+    st.title("Register")
+    with st.form(key='register_form'):
+        new_username = st.text_input("New Username")
+        new_name = st.text_input("Name")
+        new_password = st.text_input("New Password", type="password")
+        if st.form_submit_button("Register"):
+            hashed_password = bcrypt.hashpw(new_password.encode('utf8'), bcrypt.gensalt()) # Hash the password
+            hashed_password_hex = binascii.hexlify(hashed_password).decode() # Convert hash to hexadecimal string
+            
+            # Check if the username already exists
+            if new_username in st.session_state.df_users['username'].values:
+                st.error("Username already exists. Please choose a different one.")
+                return
+            else:
+                new_user = pd.DataFrame([[new_username, new_name, hashed_password_hex]], columns=DATA_COLUMNS)
+                st.session_state.df_users = pd.concat([st.session_state.df_users, new_user], ignore_index=True)
+                
+                # Writes the updated dataframe to GitHub data repository
+                st.session_state.github.write_df(DATA_FILE, st.session_state.df_users, "added new user")
+                st.success("Registration successful! You can now log in.")
 
-def check_hashes(password, hashed_text):
-    return make_hashes(password) == hashed_text
+def authenticate(username, password):
+    """ 
+    Initialize the authentication status.
 
-def verify_login(username, password, benutzer_df):
-    user_info = benutzer_df[benutzer_df['username'] == username]
-    if not user_info.empty and check_hashes(password, user_info.iloc[0]['password']):
-        return True
-    return False
+    Parameters:
+    username (str): The username to authenticate.
+    password (str): The password to authenticate.    
+    """
+    login_df = st.session_state.df_users
+    login_df['username'] = login_df['username'].astype(str)
 
-def register_user(username, password, benutzer_df):
-    if username not in benutzer_df['username'].values:
-        benutzer_df = benutzer_df.append({'username': username, 'password': make_hashes(password)}, ignore_index=True)
-        benutzer_df.to_csv(BENUTZER_DATEN_PFAD, index=False)
-        return True
-    return False
-
-
-def bild_speichern(bild, name):
-    if bild is not None:
-        bild_filename = name + "_" + bild.name
-        bild_path = os.path.join(BILD_ORDNER, bild_filename)
-        with open(bild_path, "wb") as f:
-            f.write(bild.getbuffer())
-        return os.path.join(BILD_ORDNER, bild_filename)
-    return ""
-
-def bild_und_eintrag_loeschen(index, df):
-    bildpath = df.iloc[index]['Bildpfad']
-    if bildpath and os.path.exists(bildpath):
-        os.remove(bildpath)
-    df.drop(index, inplace=True)
-    speichern_oder_aktualisieren(df)
-
-def speichern_oder_aktualisieren(df):
-    df.to_csv(DATEN_PFAD, index=False)
-
-def hauptanwendung(benutzer_df):
-    st.title('Herzlich Willkommen!')
-    auswahl = st.sidebar.radio("Menü:", ["Hauptmenü", "Favoriten", "Ausprobieren"])
-    if st.sidebar.button('Neues Produkt'):
-        st.session_state['show_form'] = True
-
-    if os.path.exists(DATEN_PFAD) and os.path.getsize(DATEN_PFAD) > 0:
-        df = pd.read_csv(DATEN_PFAD)
+    if username in login_df['username'].values:
+        stored_hashed_password = login_df.loc[login_df['username'] == username, 'password'].values[0]
+        stored_hashed_password_bytes = binascii.unhexlify(stored_hashed_password) # convert hex to bytes
+        
+        # Check the input password
+        if bcrypt.checkpw(password.encode('utf8'), stored_hashed_password_bytes): 
+            st.session_state['authentication'] = True
+            st.success('Login successful')
+            st.rerun()
+        else:
+            st.error('Incorrect password')
     else:
-        df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+        st.error('Username not found')
 
-    if auswahl == "Hauptmenü":
-        if not df.empty:
-            for i in range(0, len(df), 2):
-                cols = st.columns(2)
-                for idx in range(2):
-                    if i + idx < len(df):
-                        with cols[idx]:
-                            item = df.iloc[i + idx]
-                            if item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden ist
-                                st.image(item['Bildpfad'], width=150, caption=item['Name'])
-                            else:
-                                st.write("Kein Bild vorhanden")
-                            st.write(f"Kategorie: {item['Kategorie']}")
-                            st.write(f"Bewertung: {item['Bewertung']}")
-                            st.write(f"Notizen: {item['Notizen']}")
-                            option = st.selectbox("Optionen:", ["Aktion wählen", "Bearbeiten", "Löschen"], key=f"optionen{i + idx}")
-                            if option == "Bearbeiten":
-                                st.session_state['show_form'] = True
-                                st.session_state['edit_index'] = i + idx
-                            elif option == "Löschen":
-                                bild_und_eintrag_loeschen(i + idx, df)
-                                st.experimental_rerun()
+def init_github():
+    """Initialize the GithubContents object."""
+    if 'github' not in st.session_state:
+        st.session_state.github = GithubContents(
+            st.secrets["github"]["owner"],
+            st.secrets["github"]["repo"],
+            st.secrets["github"]["token"])
+        print("github initialized")
+    
+def init_credentials():
+    """Initialize or load the dataframe."""
+    if 'df_users' in st.session_state:
+        pass
 
-    if 'show_form' in st.session_state and st.session_state['show_form']:
-        with st.form(key='neues_produkt_form'):
-            kategorie = st.text_input("Kategorie des Produkts:", value="" if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Kategorie'])
-            name = st.text_input("Name des Produkts:", value="" if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Name'])
-            bewertung = st.slider("Bewertung:", 1, 10, 5 if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Bewertung'])
-            bild = st.file_uploader("Bild des Produkts hochladen:", type=['jpg', 'png'], key='bild')
-            notizen = st.text_area("Notizen zum Produkt:", value="" if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Notizen'])
-            submit_button = st.form_submit_button("Produkt speichern")
-            if submit_button:
-                if 'edit_index' in st.session_state:
-                    if bild:
-                        bild_path = bild_speichern(bild, name)
-                        if df.iloc[st.session_state['edit_index']]['Bildpfad']:
-                            os.remove(df.iloc[st.session_state['edit_index']]['Bildpfad'])
-                    else:
-                        bild_path = df.iloc[st.session_state['edit_index']]['Bildpfad']
-                    df.at[st.session_state['edit_index'], 'Kategorie'] = kategorie
-                    df.at[st.session_state['edit_index'], 'Name'] = name
-                    df.at[st.session_state['edit_index'], 'Bewertung'] = bewertung
-                    df.at[st.session_state['edit_index'], 'Notizen'] = notizen
-                    df.at[st.session_state['edit_index'], 'Bildpfad'] = bild_path
-                    del st.session_state['edit_index']
-                else:
-                    bild_path = bild_speichern(bild, name) if bild else ""
-                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
-                    df = pd.concat([df, neues_produkt], ignore_index=True)
-                speichern_oder_aktualisieren(df)
-                st.success("Produkt erfolgreich gespeichert!")
-                st.session_state['show_form'] = False
+    if st.session_state.github.file_exists(DATA_FILE):
+        st.session_state.df_users = st.session_state.github.read_df(DATA_FILE)
+    else:
+        st.session_state.df_users = pd.DataFrame(columns=DATA_COLUMNS)
 
-with st.sidebar:
-    st.title("Anmeldung")
-    username = st.text_input("Benutzername")
-    password = st.text_input("Passwort", type='password')
-    login_button = st.button("Anmelden")
-    register_button = st.button("Registrieren")
 
-    if login_button and verify_login(username, password, benutzer_df):
-        st.session_state['logged_in'] = True
-        st.session_state['username'] = username
-        st.experimental_rerun()
-    elif login_button:
-        st.error("Falscher Benutzername/Passwort-Kombination")
+def main():
+    init_github() # Initialize the GithubContents object
+    init_credentials() # Loads the credentials from the Github data repository
 
-    if register_button and register_user(username, password, benutzer_df):
-        st.session_state['logged_in'] = True
-        st.session_state['username'] = username
-        st.success('Benutzer erfolgreich registriert.')
-        st.experimental_rerun()
-    elif register_button:
-        st.error('Registrierung fehlgeschlagen.')
+    if 'authentication' not in st.session_state:
+        st.session_state['authentication'] = False
 
-# Authentifizierungsstatus prüfen und Hauptanwendung anzeigen
-if 'logged_in' in st.session_state and st.session_state['logged_in']:
-    hauptanwendung(benutzer_df)
-else:
-    st.info("Bitte melden Sie sich an, um fortzufahren.")
+    if not st.session_state['authentication']:
+        options = st.sidebar.selectbox("Select a page", ["Login", "Register"])
+        if options == "Login":
+            login_page()
+        elif options == "Register":
+            register_page()
 
-# Logout-Funktion in der Seitenleiste, falls eingeloggt
-if st.session_state.get('logged_in'):
-    if st.sidebar.button('Abmelden'):
-        st.session_state['logged_in'] = False
-        st.session_state['username'] = ''
-        st.session_state['authentication_status'] = None
-        st.experimental_rerun()
+    else:
+        #replace the code bellow with your own code or switch to another page
+        st.success(f"Hurray {st.session_state['username']}!! You are logged in.", icon="🤩")
+        logout_button = st.button("Logout")
+        if logout_button:
+            st.session_state['authentication'] = False
+            st.rerun()
 
+if __name__ == "__main__":
+    main()
