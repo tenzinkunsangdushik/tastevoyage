@@ -56,9 +56,10 @@ def bild_speichern(bild, name):
     return ""
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
-    bildpath = df.iloc[index]['Bildpfad']
-    if bildpath and os.path.exists(bildpath):
-        os.remove(bildpath)
+    if 'Bildpfad' in df.columns:
+        bildpath = df.iloc[index]['Bildpfad']
+        if bildpath and os.path.exists(bildpath):
+            os.remove(bildpath)
     df.drop(index, inplace=True)
     speichern_oder_aktualisieren(df, pfad)
 
@@ -255,7 +256,7 @@ def hauptanwendung(benutzer_df):
                     del st.session_state['edit_index']
                 else:
                     bild_path = bild_speichern(bild, name) if bild else ""
-                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path, st.session_state['username']]], columns=DATA_COLUMNS_TV)
                     df = pd.concat([df, neues_produkt], ignore_index=True)
                 speichern_oder_aktualisieren(df)
                 st.success("Produkt erfolgreich gespeichert!")
