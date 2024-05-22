@@ -6,18 +6,26 @@ import binascii
 from github_contents import GithubContents
 import bcrypt
 from PIL import Image
-import base64
-from io import BytesIO
 
 # Konfiguration und Hilfsfunktionen
 DATEN_PFAD = 'produkte.csv'
+BILD_ORDNER = 'produkt_bilder'
 BENUTZER_DATEN_PFAD = 'users.csv'
 DATA_FILE = "MyLoginTable.csv"
 DATA_FILE_MAIN = "tastevoyage.csv"
-BILD_ORDNER = 'produkt_bilder'  # Verzeichnis für Bilder auf GitHub
+DATA_FILE_FILTERED = 'filteredtastevoyage.csv'
 DATA_COLUMNS = ['username', 'name', 'password']
 DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad']
 FAVORITEN_PFAD = 'favoriten.csv'
+
+# Datenpfade und Initialisierung
+if not os.path.exists(BILD_ORDNER):
+    os.makedirs(BILD_ORDNER)
+if not os.path.exists(BENUTZER_DATEN_PFAD):
+    benutzer_df = pd.DataFrame(columns=['username', 'password'])
+    benutzer_df.to_csv(BENUTZER_DATEN_PFAD, index=False)
+else:
+    benutzer_df = pd.read_csv(BENUTZER_DATEN_PFAD)
 
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
@@ -38,25 +46,21 @@ def register_user(username, password, benutzer_df):
         return True
     return False
 
+
 def bild_speichern(bild, name):
     if bild is not None:
         bild_filename = name + "_" + bild.name
-        bild_bytes = bild.read()
-        bild_base64 = base64.b64encode(bild_bytes).decode('utf-8')
         bild_path = os.path.join(BILD_ORDNER, bild_filename)
-        
-        # Hochladen des Bildes auf GitHub
-        st.session_state.github.write_file(bild_path, bild_base64, "Added product image")
-        
-        return bild_path
+        with open(bild_path, "wb") as f:
+            f.write(bild.getbuffer())
+        return os.path.join(BILD_ORDNER, bild_filename)
     return ""
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     if 'Bildpfad' in df.columns:
         bildpath = df.at[index, 'Bildpfad']
-        if isinstance(bildpath, str) and bildpath:
-            # Entfernen des Bildes von GitHub
-            st.session_state.github.delete_file(bildpath, "Deleted product image")
+        if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
+            os.remove(bildpath)
     if index in df.index:
         df.drop(index, inplace=True)
         speichern_oder_aktualisieren(df, pfad)
@@ -65,18 +69,11 @@ def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
 
 def speichern_oder_aktualisieren(df, pfad):
     if pfad == DATA_FILE_MAIN:
-        df_csv = df.to_csv(index=False)
-        st.session_state.github.write_file(pfad, df_csv, "Updated tastevoyage data")
+        st.session_state.github.write_df(pfad, df, "Updated tastevoyage data")
     elif pfad == FAVORITEN_PFAD:
-        df_csv = df.to_csv(index=False)
-        st.session_state.github.write_file(pfad, df_csv, "Updated favorites data")
+        st.session_state.github.write_df(pfad, df, "Updated favorites data")
     else:
         df.to_csv(pfad, index=False)
-
-def bild_abrufen(bildpfad):
-    bild_base64 = st.session_state.github.get_file(bildpfad)
-    bild_bytes = base64.b64decode(bild_base64)
-    return Image.open(BytesIO(bild_bytes))
 
 def login_page():
     """ Login an existing user. """
@@ -160,6 +157,13 @@ def init_tastevoyage():
     else:
         st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
+
+def init_filtered_df():
+    if st.session_state.github.file_exists(DATA_FILE_FILTERED):
+        st.session_state.df_filtered = st.session_state.github.read_df(DATA_FILE_FILTERED)
+    else:
+        st.session_state.df_filtered = pd.DataFrame(columns=DATA_COLUMNS_TV)
+
 def show_item(item, index, df, favoriten_df=None):
     if 'Bildpfad' not in item:
         item['Bildpfad'] = ""
@@ -174,7 +178,7 @@ def show_item(item, index, df, favoriten_df=None):
 
     try:
         if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
-            image = bild_abrufen(item['Bildpfad'])
+            image = Image.open(item['Bildpfad'])
             image = image.resize((200, 400))  # Breite und Höhe festlegen
             st.image(image, caption=item['Name'])
         else:
@@ -250,7 +254,7 @@ def hauptanwendung(benutzer_df):
                     if bild:
                         bild_path = bild_speichern(bild, name)
                         if st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad']:
-                            st.session_state.github.delete_file(st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad'], "Deleted old product image")
+                            os.remove(st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad'])
                     else:
                         bild_path = st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad']
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Kategorie'] = kategorie
@@ -325,5 +329,5 @@ def main():
                 st.rerun()
         hauptanwendung(st.session_state['df_users'])
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     main()
