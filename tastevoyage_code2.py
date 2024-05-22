@@ -190,14 +190,14 @@ def show_item(item, index, df, favoriten_df=None):
         st.session_state['edit_index'] = index
     elif option == "Löschen":
         bild_und_eintrag_loeschen(index, df)
-        st.experimental_rerun()
+        st.rerun()
     elif option == "Zu Favoriten hinzufügen" and favoriten_df is not None:
         favoriten_df = pd.concat([favoriten_df, pd.DataFrame([item])], ignore_index=True)
         speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
         st.success(f"{item['Name']} wurde zu den Favoriten hinzugefügt!")
     elif option == "Entfernen" and favoriten_df is None:
         bild_und_eintrag_loeschen(index, df, FAVORITEN_PFAD)
-        st.experimental_rerun()
+        st.rerun()
 
 def hauptanwendung(benutzer_df):
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
@@ -264,7 +264,7 @@ def hauptanwendung(benutzer_df):
                 speichern_oder_aktualisieren(df)
                 st.success("Produkt erfolgreich gespeichert!")
                 st.session_state['show_form'] = False
-                st.experimental_rerun()
+                st.rerun()
 
 import matplotlib.pyplot as plt
 
