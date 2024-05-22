@@ -7,6 +7,7 @@ from github_contents import GithubContents
 import bcrypt
 from PIL import Image
 import base64
+from io import BytesIO
 
 # Konfiguration und Hilfsfunktionen
 DATEN_PFAD = 'produkte.csv'
@@ -71,6 +72,11 @@ def speichern_oder_aktualisieren(df, pfad):
         st.session_state.github.write_file(pfad, df_csv, "Updated favorites data")
     else:
         df.to_csv(pfad, index=False)
+
+def bild_abrufen(bildpfad):
+    bild_base64 = st.session_state.github.get_file(bildpfad)
+    bild_bytes = base64.b64decode(bild_base64)
+    return Image.open(BytesIO(bild_bytes))
 
 def login_page():
     """ Login an existing user. """
@@ -168,8 +174,7 @@ def show_item(item, index, df, favoriten_df=None):
 
     try:
         if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
-            image_path = st.session_state.github.get_file(item['Bildpfad'])
-            image = Image.open(image_path)
+            image = bild_abrufen(item['Bildpfad'])
             image = image.resize((200, 400))  # Breite und Höhe festlegen
             st.image(image, caption=item['Name'])
         else:
