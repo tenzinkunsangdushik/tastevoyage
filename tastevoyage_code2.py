@@ -57,11 +57,14 @@ def bild_speichern(bild, name):
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     if 'Bildpfad' in df.columns:
-        bildpath = df.iloc[index]['Bildpfad']
+        bildpath = df.at[index, 'Bildpfad']
         if bildpath and os.path.exists(bildpath):
             os.remove(bildpath)
-    df.drop(index, inplace=True)
-    speichern_oder_aktualisieren(df, pfad)
+    if index in df.index:
+        df.drop(index, inplace=True)
+        speichern_oder_aktualisieren(df, pfad)
+    else:
+        st.error(f"Index {index} not found in dataframe. Unable to delete.")
 
 def speichern_oder_aktualisieren(df, pfad=DATEN_PFAD):
     df.to_csv(pfad, index=False)
