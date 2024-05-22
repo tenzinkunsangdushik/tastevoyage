@@ -13,9 +13,8 @@ BILD_ORDNER = 'produkt_bilder'
 BENUTZER_DATEN_PFAD = 'users.csv'
 DATA_FILE = "MyLoginTable.csv"
 DATA_FILE_MAIN = "tastevoyage.csv"
-DATA_FILE_FILTERED = 'filteredtastevoyage.csv'
 DATA_COLUMNS = ['username', 'name', 'password']
-DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID']
+DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad']
 FAVORITEN_PFAD = 'favoriten.csv'
 
 # Datenpfade und Initialisierung
@@ -57,18 +56,13 @@ def bild_speichern(bild, name):
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     bildpath = df.iloc[index]['Bildpfad']
-    if bildpath and os.path.exists(bildpath):
+    if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
         os.remove(bildpath)
     df.drop(index, inplace=True)
     speichern_oder_aktualisieren(df, pfad)
 
-def speichern_oder_aktualisieren(df, pfad):
-    if pfad == DATA_FILE_MAIN:
-        st.session_state.github.write_df(pfad, df, "Updated tastevoyage data")
-    elif pfad == DATA_FILE_FILTERED:
-        st.session_state.github.write_df(pfad, df, "Updated filtered tastevoyage data")
-    else:
-        df.to_csv(pfad, index=False)
+def speichern_oder_aktualisieren(df, pfad=DATEN_PFAD):
+    df.to_csv(pfad, index=False)
 
 def login_page():
     """ Login an existing user. """
@@ -152,16 +146,9 @@ def init_tastevoyage():
     else:
         st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
-
-def init_filtered_df():
-    if st.session_state.github.file_exists(DATA_FILE_FILTERED):
-        st.session_state.df_filtered = st.session_state.github.read_df(DATA_FILE_FILTERED)
-    else:
-        st.session_state.df_filtered = pd.DataFrame(columns=DATA_COLUMNS_TV)
-
 def show_item(item, index, df, favoriten_df=None):
     try:
-        if item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden ist
+        if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
             image = Image.open(item['Bildpfad'])
             image = image.resize((200, 400))  # Breite und Höhe festlegen
             st.image(image, caption=item['Name'])
@@ -169,7 +156,7 @@ def show_item(item, index, df, favoriten_df=None):
             st.write("Kein Bild vorhanden")
     except FileNotFoundError:
         st.write("Bild nicht gefunden")
-    st.markdown(f"### *{item['Name']}*")
+    st.markdown(f"### {item['Name']}")
     st.write(f"Kategorie: {item['Kategorie']}")
     st.write(f"Bewertung: {item['Bewertung']}")
     st.write(f"Notizen: {item['Notizen']}")
@@ -178,15 +165,15 @@ def show_item(item, index, df, favoriten_df=None):
         st.session_state['show_form'] = True
         st.session_state['edit_index'] = index
     elif option == "Löschen":
-        bild_und_eintrag_loeschen(index, df, DATA_FILE_MAIN)
-        st.rerun()
+        bild_und_eintrag_loeschen(index, df)
+        st.experimental_rerun()
     elif option == "Zu Favoriten hinzufügen" and favoriten_df is not None:
         favoriten_df = pd.concat([favoriten_df, pd.DataFrame([item])], ignore_index=True)
-        speichern_oder_aktualisieren(favoriten_df, DATA_FILE_FILTERED)
+        speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
         st.success(f"{item['Name']} wurde zu den Favoriten hinzugefügt!")
     elif option == "Entfernen" and favoriten_df is None:
-        bild_und_eintrag_loeschen(index, df, DATA_FILE_FILTERED)
-        st.rerun()
+        bild_und_eintrag_loeschen(index, df, FAVORITEN_PFAD)
+        st.experimental_rerun()
 
 def hauptanwendung(benutzer_df):
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
@@ -195,11 +182,16 @@ def hauptanwendung(benutzer_df):
     if st.sidebar.button('Neues Produkt'):
         st.session_state['show_form'] = True
     
-    init_tastevoyage()
-    init_filtered_df()
-    df = st.session_state.df_tastevoyage[st.session_state.df_tastevoyage['Benutzer_ID'] == st.session_state['username']]
-    favoriten_df = st.session_state.df_filtered[st.session_state.df_filtered['Benutzer_ID'] == st.session_state['username']]
-
+    if os.path.exists(DATEN_PFAD) and os.path.getsize(DATEN_PFAD) > 0:
+        df = pd.read_csv(DATEN_PFAD)
+    else:
+        df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+    
+    if os.path.exists(FAVORITEN_PFAD) and os.path.getsize(FAVORITEN_PFAD) > 0:
+        favoriten_df = pd.read_csv(FAVORITEN_PFAD)
+    else:
+        favoriten_df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+    
     produktsuche(df)  # Produktsuche-Funktion hinzufügen
 
     if auswahl == "Hauptmenü":
@@ -244,16 +236,15 @@ def hauptanwendung(benutzer_df):
                     df.at[st.session_state['edit_index'], 'Bewertung'] = bewertung
                     df.at[st.session_state['edit_index'], 'Notizen'] = notizen
                     df.at[st.session_state['edit_index'], 'Bildpfad'] = bild_path
-                    df.at[st.session_state['edit_index'], 'Benutzer_ID'] = st.session_state['username']
                     del st.session_state['edit_index']
                 else:
                     bild_path = bild_speichern(bild, name) if bild else ""
-                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path, st.session_state['username']]], columns=DATA_COLUMNS_TV)
+                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
                     df = pd.concat([df, neues_produkt], ignore_index=True)
-                speichern_oder_aktualisieren(df, DATA_FILE_MAIN)
+                speichern_oder_aktualisieren(df)
                 st.success("Produkt erfolgreich gespeichert!")
                 st.session_state['show_form'] = False
-                st.rerun()
+                st.experimental_rerun()
 
 import matplotlib.pyplot as plt
 
@@ -273,27 +264,9 @@ def statistik_seite(df):
     fig, ax = plt.subplots()
     anzahl_produkte.plot(kind='bar', ax=ax)
     st.pyplot(fig)
-
-def produktsuche(df):
-    st.sidebar.subheader("Produktsuche")
-    suche = st.sidebar.text_input("Produktname eingeben")
-    suchergebnisse = pd.DataFrame()  # Hier initialisieren
-    if suche:
-        suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
-    if not suchergebnisse.empty:
-        st.write(f"Suchergebnisse für '{suche}':")
-        for i in range(0, len(suchergebnisse), 2):
-            cols = st.columns(2)
-            for idx in range(2):
-                if i + idx < len(suchergebnisse):
-                    with cols[idx]:
-                        show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
-    else:
-        st.write("Keine Produkte gefunden.")
-
 def main():
-    init_github()  # Initialize the GithubContents object
-    init_credentials()  # Loads the credentials from the Github data repository
+    init_github() # Initialize the GithubContents object
+    init_credentials() # Loads the credentials from the Github data repository
 
     if 'authentication' not in st.session_state:
         st.session_state['authentication'] = False
@@ -310,7 +283,25 @@ def main():
             if logout_button:
                 st.session_state['authentication'] = False
                 st.rerun()
-        hauptanwendung(st.session_state['df_users'])
+        hauptanwendung(st.session_state['df_users']) 
 
-if __name__ == "__main__":
+def produktsuche(df):
+    st.sidebar.subheader("Produktsuche")
+    suche = st.sidebar.text_input("Produktname eingeben")
+    suchergebnisse = pd.DataFrame()  # Hier initialisieren
+    if suche:
+        suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
+    if not suchergebnisse.empty:
+            st.write(f"Suchergebnisse für '{suche}':")
+            for i in range(0, len(suchergebnisse), 2):
+                cols = st.columns(2)
+                for idx in range(2):
+                    if i + idx < len(suchergebnisse):
+                        with cols[idx]:
+                            show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
+            else:
+                st.write("Keine Produkte gefunden.")
+
+
+if _name_ == "_main_":
     main()
