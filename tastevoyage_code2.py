@@ -324,5 +324,5 @@ def main():
                 st.rerun()
         hauptanwendung(st.session_state['df_users'])
 
-if name == "main":
+if __name__ == "__main__":
     main()
