@@ -56,7 +56,7 @@ def bild_speichern(bild, name):
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     bildpath = df.iloc[index]['Bildpfad']
-    if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
+    if bildpath and os.path.exists(bildpath):
         os.remove(bildpath)
     df.drop(index, inplace=True)
     speichern_oder_aktualisieren(df, pfad)
@@ -148,7 +148,7 @@ def init_tastevoyage():
 
 def show_item(item, index, df, favoriten_df=None):
     try:
-        if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
+        if item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden ist
             image = Image.open(item['Bildpfad'])
             image = image.resize((200, 400))  # Breite und Höhe festlegen
             st.image(image, caption=item['Name'])
@@ -303,5 +303,26 @@ def produktsuche(df):
                 st.write("Keine Produkte gefunden.")
 
 
-if __name__ == "__main__":
+def main():
+    init_github()  # Initialize the GithubContents object
+    init_credentials()  # Loads the credentials from the Github data repository
+
+    if 'authentication' not in st.session_state:
+        st.session_state['authentication'] = False
+
+    if not st.session_state['authentication']:
+        options = st.sidebar.selectbox("Select a page", ["Login", "Register"])
+        if options == "Login":
+            login_page()
+        elif options == "Register":
+            register_page()
+    else:
+        with st.sidebar:
+            logout_button = st.button("Logout")
+            if logout_button:
+                st.session_state['authentication'] = False
+                st.rerun()
+        hauptanwendung(st.session_state['df_users'])
+
+if _name_ == "_main_":
     main()
