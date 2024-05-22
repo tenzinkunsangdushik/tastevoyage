@@ -54,15 +54,20 @@ def bild_speichern(bild, name):
         return os.path.join(BILD_ORDNER, bild_filename)
     return ""
 
-def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
+def bild_und_eintrag_loeschen(index, df, pfad):
     bildpath = df.iloc[index]['Bildpfad']
     if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
         os.remove(bildpath)
     df.drop(index, inplace=True)
     speichern_oder_aktualisieren(df, pfad)
 
-def speichern_oder_aktualisieren(df, pfad=DATEN_PFAD):
-    df.to_csv(pfad, index=False)
+def speichern_oder_aktualisieren(df, pfad):
+    if pfad == DATA_FILE_MAIN:
+        st.session_state.github.write_df(pfad, df, "Updated tastevoyage data")
+    elif pfad == FAVORITEN_PFAD:
+        st.session_state.github.write_df(pfad, df, "Updated favorites data")
+    else:
+        df.to_csv(pfad, index=False)
 
 def login_page():
     """ Login an existing user. """
@@ -165,15 +170,15 @@ def show_item(item, index, df, favoriten_df=None):
         st.session_state['show_form'] = True
         st.session_state['edit_index'] = index
     elif option == "Löschen":
-        bild_und_eintrag_loeschen(index, df)
-        st.experimental_rerun()
+        bild_und_eintrag_loeschen(index, df, DATA_FILE_MAIN)
+        st.rerun()
     elif option == "Zu Favoriten hinzufügen" and favoriten_df is not None:
         favoriten_df = pd.concat([favoriten_df, pd.DataFrame([item])], ignore_index=True)
         speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
         st.success(f"{item['Name']} wurde zu den Favoriten hinzugefügt!")
     elif option == "Entfernen" and favoriten_df is None:
         bild_und_eintrag_loeschen(index, df, FAVORITEN_PFAD)
-        st.experimental_rerun()
+        st.rerun()
 
 def hauptanwendung(benutzer_df):
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
@@ -182,26 +187,23 @@ def hauptanwendung(benutzer_df):
     if st.sidebar.button('Neues Produkt'):
         st.session_state['show_form'] = True
     
-    if os.path.exists(DATEN_PFAD) and os.path.getsize(DATEN_PFAD) > 0:
-        df = pd.read_csv(DATEN_PFAD)
-    else:
-        df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+    init_tastevoyage()
     
-    if os.path.exists(FAVORITEN_PFAD) and os.path.getsize(FAVORITEN_PFAD) > 0:
-        favoriten_df = pd.read_csv(FAVORITEN_PFAD)
+    if st.session_state.github.file_exists(FAVORITEN_PFAD):
+        favoriten_df = st.session_state.github.read_df(FAVORITEN_PFAD)
     else:
-        favoriten_df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+        favoriten_df = pd.DataFrame(columns=DATA_COLUMNS_TV)
     
-    produktsuche(df)  # Produktsuche-Funktion hinzufügen
+    produktsuche(st.session_state.df_tastevoyage)  # Produktsuche-Funktion hinzufügen
 
     if auswahl == "Hauptmenü":
-        if not df.empty:
-            for i in range(0, len(df), 2):
+        if not st.session_state.df_tastevoyage.empty:
+            for i in range(0, len(st.session_state.df_tastevoyage), 2):
                 cols = st.columns(2)
                 for idx in range(2):
-                    if i + idx < len(df):
+                    if i + idx < len(st.session_state.df_tastevoyage):
                         with cols[idx]:
-                            show_item(df.iloc[i + idx], i + idx, df, favoriten_df)
+                            show_item(st.session_state.df_tastevoyage.iloc[i + idx], i + idx, st.session_state.df_tastevoyage, favoriten_df)
     
     elif auswahl == "Favoriten":
         if not favoriten_df.empty:
@@ -213,38 +215,38 @@ def hauptanwendung(benutzer_df):
                             show_item(favoriten_df.iloc[i + idx], i + idx, favoriten_df)
     
     elif auswahl == "Statistiken":
-        statistik_seite(df)
+        statistik_seite(st.session_state.df_tastevoyage)
 
     if 'show_form' in st.session_state and st.session_state['show_form']:
         with st.form(key='neues_produkt_form'):
-            kategorie = st.text_input("Kategorie des Produkts:", value="" if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Kategorie'])
-            name = st.text_input("Name des Produkts:", value="" if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Name'])
-            bewertung = st.slider("Bewertung:", 1, 10, 5 if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Bewertung'])
+            kategorie = st.text_input("Kategorie des Produkts:", value="" if 'edit_index' not in st.session_state else st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Kategorie'])
+            name = st.text_input("Name des Produkts:", value="" if 'edit_index' not in st.session_state else st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Name'])
+            bewertung = st.slider("Bewertung:", 1, 10, 5 if 'edit_index' not in st.session_state else st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bewertung'])
             bild = st.file_uploader("Bild des Produkts hochladen:", type=['jpg', 'png'], key='bild')
-            notizen = st.text_area("Notizen zum Produkt:", value="" if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Notizen'])
+            notizen = st.text_area("Notizen zum Produkt:", value="" if 'edit_index' not in st.session_state else st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Notizen'])
             submit_button = st.form_submit_button("Produkt speichern")
             if submit_button:
                 if 'edit_index' in st.session_state:
                     if bild:
                         bild_path = bild_speichern(bild, name)
-                        if df.iloc[st.session_state['edit_index']]['Bildpfad']:
-                            os.remove(df.iloc[st.session_state['edit_index']]['Bildpfad'])
+                        if st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad']:
+                            os.remove(st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad'])
                     else:
-                        bild_path = df.iloc[st.session_state['edit_index']]['Bildpfad']
-                    df.at[st.session_state['edit_index'], 'Kategorie'] = kategorie
-                    df.at[st.session_state['edit_index'], 'Name'] = name
-                    df.at[st.session_state['edit_index'], 'Bewertung'] = bewertung
-                    df.at[st.session_state['edit_index'], 'Notizen'] = notizen
-                    df.at[st.session_state['edit_index'], 'Bildpfad'] = bild_path
+                        bild_path = st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad']
+                    st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Kategorie'] = kategorie
+                    st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Name'] = name
+                    st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Bewertung'] = bewertung
+                    st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Notizen'] = notizen
+                    st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Bildpfad'] = bild_path
                     del st.session_state['edit_index']
                 else:
                     bild_path = bild_speichern(bild, name) if bild else ""
-                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
-                    df = pd.concat([df, neues_produkt], ignore_index=True)
-                speichern_oder_aktualisieren(df)
+                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=DATA_COLUMNS_TV)
+                    st.session_state.df_tastevoyage = pd.concat([st.session_state.df_tastevoyage, neues_produkt], ignore_index=True)
+                speichern_oder_aktualisieren(st.session_state.df_tastevoyage, DATA_FILE_MAIN)
                 st.success("Produkt erfolgreich gespeichert!")
                 st.session_state['show_form'] = False
-                st.experimental_rerun()
+                st.rerun()
 
 import matplotlib.pyplot as plt
 
@@ -264,9 +266,27 @@ def statistik_seite(df):
     fig, ax = plt.subplots()
     anzahl_produkte.plot(kind='bar', ax=ax)
     st.pyplot(fig)
+
+def produktsuche(df):
+    st.sidebar.subheader("Produktsuche")
+    suche = st.sidebar.text_input("Produktname eingeben")
+    suchergebnisse = pd.DataFrame()  # Hier initialisieren
+    if suche:
+        suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
+    if not suchergebnisse.empty:
+        st.write(f"Suchergebnisse für '{suche}':")
+        for i in range(0, len(suchergebnisse), 2):
+            cols = st.columns(2)
+            for idx in range(2):
+                if i + idx < len(suchergebnisse):
+                    with cols[idx]:
+                        show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
+    else:
+        st.write("Keine Produkte gefunden.")
+
 def main():
-    init_github() # Initialize the GithubContents object
-    init_credentials() # Loads the credentials from the Github data repository
+    init_github()  # Initialize the GithubContents object
+    init_credentials()  # Loads the credentials from the Github data repository
 
     if 'authentication' not in st.session_state:
         st.session_state['authentication'] = False
@@ -283,25 +303,7 @@ def main():
             if logout_button:
                 st.session_state['authentication'] = False
                 st.rerun()
-        hauptanwendung(st.session_state['df_users']) 
-
-def produktsuche(df):
-    st.sidebar.subheader("Produktsuche")
-    suche = st.sidebar.text_input("Produktname eingeben")
-    suchergebnisse = pd.DataFrame()  # Hier initialisieren
-    if suche:
-        suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
-    if not suchergebnisse.empty:
-            st.write(f"Suchergebnisse für '{suche}':")
-            for i in range(0, len(suchergebnisse), 2):
-                cols = st.columns(2)
-                for idx in range(2):
-                    if i + idx < len(suchergebnisse):
-                        with cols[idx]:
-                            show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
-            else:
-                st.write("Keine Produkte gefunden.")
-
+        hauptanwendung(st.session_state['df_users'])
 
 if __name__ == "__main__":
     main()
