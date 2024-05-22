@@ -66,7 +66,7 @@ def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     else:
         st.error(f"Index {index} not found in dataframe. Unable to delete.")
 
-def speichern_oder_aktualisieren(df, pfad=DATEN_PFAD):
+def speichern_oder_aktualisieren(df, pfad):
     df.to_csv(pfad, index=False)
 
 def login_page():
@@ -150,7 +150,6 @@ def init_tastevoyage():
         st.session_state.df_tastevoyage = st.session_state.github.read_df(DATA_FILE_MAIN)
     else:
         st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
-
 
 def init_filtered_df():
     if st.session_state.github.file_exists(DATA_FILE_FILTERED):
@@ -261,7 +260,7 @@ def hauptanwendung(benutzer_df):
                     bild_path = bild_speichern(bild, name) if bild else ""
                     neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path, st.session_state['username']]], columns=DATA_COLUMNS_TV)
                     df = pd.concat([df, neues_produkt], ignore_index=True)
-                speichern_oder_aktualisieren(df)
+                speichern_oder_aktualisieren(df, DATA_FILE_MAIN)
                 st.success("Produkt erfolgreich gespeichert!")
                 st.session_state['show_form'] = False
                 st.rerun()
