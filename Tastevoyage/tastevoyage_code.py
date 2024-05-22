@@ -54,15 +54,15 @@ def bild_speichern(bild, name):
         return os.path.join(BILD_ORDNER, bild_filename)
     return ""
 
-def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
+def bild_und_eintrag_loeschen(index, df, pfad=DATA_FILE_MAIN):
     bildpath = df.iloc[index]['Bildpfad']
-    if bildpath and os.path.exists(bildpath):
+    if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
         os.remove(bildpath)
     df.drop(index, inplace=True)
     speichern_oder_aktualisieren(df, pfad)
 
-def speichern_oder_aktualisieren(df, pfad=DATEN_PFAD):
-    df.to_csv(pfad, index=False)
+def speichern_oder_aktualisieren(df, pfad=DATA_FILE_MAIN):
+    st.session_state.github.write_df(pfad, df, "updated product data")
 
 def login_page():
     """ Login an existing user. """
@@ -148,7 +148,7 @@ def init_tastevoyage():
 
 def show_item(item, index, df, favoriten_df=None):
     try:
-        if item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden ist
+        if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
             image = Image.open(item['Bildpfad'])
             image = image.resize((200, 400))  # Breite und Höhe festlegen
             st.image(image, caption=item['Name'])
@@ -182,10 +182,8 @@ def hauptanwendung(benutzer_df):
     if st.sidebar.button('Neues Produkt'):
         st.session_state['show_form'] = True
     
-    if os.path.exists(DATEN_PFAD) and os.path.getsize(DATEN_PFAD) > 0:
-        df = pd.read_csv(DATEN_PFAD)
-    else:
-        df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+    init_tastevoyage()
+    df = st.session_state.df_tastevoyage
     
     if os.path.exists(FAVORITEN_PFAD) and os.path.getsize(FAVORITEN_PFAD) > 0:
         favoriten_df = pd.read_csv(FAVORITEN_PFAD)
@@ -264,6 +262,7 @@ def statistik_seite(df):
     fig, ax = plt.subplots()
     anzahl_produkte.plot(kind='bar', ax=ax)
     st.pyplot(fig)
+
 def main():
     init_github() # Initialize the GithubContents object
     init_credentials() # Loads the credentials from the Github data repository
@@ -292,37 +291,15 @@ def produktsuche(df):
     if suche:
         suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
     if not suchergebnisse.empty:
-            st.write(f"Suchergebnisse für '{suche}':")
-            for i in range(0, len(suchergebnisse), 2):
-                cols = st.columns(2)
-                for idx in range(2):
-                    if i + idx < len(suchergebnisse):
-                        with cols[idx]:
-                            show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
-            else:
-                st.write("Keine Produkte gefunden.")
-
-
-def main():
-    init_github()  # Initialize the GithubContents object
-    init_credentials()  # Loads the credentials from the Github data repository
-
-    if 'authentication' not in st.session_state:
-        st.session_state['authentication'] = False
-
-    if not st.session_state['authentication']:
-        options = st.sidebar.selectbox("Select a page", ["Login", "Register"])
-        if options == "Login":
-            login_page()
-        elif options == "Register":
-            register_page()
+        st.write(f"Suchergebnisse für '{suche}':")
+        for i in range(0, len(suchergebnisse), 2):
+            cols = st.columns(2)
+            for idx in range(2):
+                if i + idx < len(suchergebnisse):
+                    with cols[idx]:
+                        show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
     else:
-        with st.sidebar:
-            logout_button = st.button("Logout")
-            if logout_button:
-                st.session_state['authentication'] = False
-                st.rerun()
-        hauptanwendung(st.session_state['df_users'])
+        st.write("Keine Produkte gefunden.")
 
-if _name_ == "_main_":
+if __name__ == "__main__":
     main()
