@@ -1,4 +1,2 @@
 bcrypt
 pandas
-requests
-github_contents
