@@ -56,17 +56,13 @@ def bild_speichern(bild, name):
     return ""
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
-    if 'Bildpfad' in df.columns:
-        bildpath = df.at[index, 'Bildpfad']
-        if bildpath and os.path.exists(bildpath):
-            os.remove(bildpath)
-    if index in df.index:
-        df.drop(index, inplace=True)
-        speichern_oder_aktualisieren(df, pfad)
-    else:
-        st.error(f"Index {index} not found in dataframe. Unable to delete.")
+    bildpath = df.iloc[index]['Bildpfad']
+    if bildpath and os.path.exists(bildpath):
+        os.remove(bildpath)
+    df.drop(index, inplace=True)
+    speichern_oder_aktualisieren(df, pfad)
 
-def speichern_oder_aktualisieren(df, pfad):
+def speichern_oder_aktualisieren(df, pfad=DATEN_PFAD):
     df.to_csv(pfad, index=False)
 
 def login_page():
@@ -151,6 +147,7 @@ def init_tastevoyage():
     else:
         st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
+
 def init_filtered_df():
     if st.session_state.github.file_exists(DATA_FILE_FILTERED):
         st.session_state.df_filtered = st.session_state.github.read_df(DATA_FILE_FILTERED)
@@ -158,18 +155,6 @@ def init_filtered_df():
         st.session_state.df_filtered = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
 def show_item(item, index, df, favoriten_df=None):
-    item = item.to_dict()  # Convert the Series to a dictionary
-    if 'Bildpfad' not in item:
-        item['Bildpfad'] = ""
-    if 'Kategorie' not in item:
-        item['Kategorie'] = ""
-    if 'Name' not in item:
-        item['Name'] = ""
-    if 'Bewertung' not in item:
-        item['Bewertung'] = ""
-    if 'Notizen' not in item:
-        item['Notizen'] = ""
-
     try:
         if item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden ist
             image = Image.open(item['Bildpfad'])
@@ -189,14 +174,14 @@ def show_item(item, index, df, favoriten_df=None):
         st.session_state['edit_index'] = index
     elif option == "Löschen":
         bild_und_eintrag_loeschen(index, df)
-        st.rerun()
+        st.experimental_rerun()
     elif option == "Zu Favoriten hinzufügen" and favoriten_df is not None:
         favoriten_df = pd.concat([favoriten_df, pd.DataFrame([item])], ignore_index=True)
         speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
         st.success(f"{item['Name']} wurde zu den Favoriten hinzugefügt!")
     elif option == "Entfernen" and favoriten_df is None:
         bild_und_eintrag_loeschen(index, df, FAVORITEN_PFAD)
-        st.rerun()
+        st.experimental_rerun()
 
 def hauptanwendung(benutzer_df):
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
@@ -207,6 +192,15 @@ def hauptanwendung(benutzer_df):
     
     init_tastevoyage()
     init_filtered_df()
+    # if os.path.exists(DATEN_PFAD) and os.path.getsize(DATEN_PFAD) > 0:
+    #     df = pd.read_csv(DATEN_PFAD)
+    # else:
+    #     df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID'])
+    
+    # if os.path.exists(FAVORITEN_PFAD) and os.path.getsize(FAVORITEN_PFAD) > 0:
+    #     favoriten_df = pd.read_csv(FAVORITEN_PFAD)
+    # else:
+    #     favoriten_df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID'])
     df = st.session_state.df_tastevoyage[st.session_state.df_tastevoyage['Benutzer_ID'] == st.session_state['username']]
     favoriten_df = st.session_state.df_filtered[st.session_state.df_filtered['Benutzer_ID'] == st.session_state['username']]
 
@@ -258,12 +252,12 @@ def hauptanwendung(benutzer_df):
                     del st.session_state['edit_index']
                 else:
                     bild_path = bild_speichern(bild, name) if bild else ""
-                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path, st.session_state['username']]], columns=DATA_COLUMNS_TV)
+                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
                     df = pd.concat([df, neues_produkt], ignore_index=True)
-                speichern_oder_aktualisieren(df, DATA_FILE_MAIN)
+                speichern_oder_aktualisieren(df)
                 st.success("Produkt erfolgreich gespeichert!")
                 st.session_state['show_form'] = False
-                st.rerun()
+                st.experimental_rerun()
 
 import matplotlib.pyplot as plt
 
@@ -283,6 +277,26 @@ def statistik_seite(df):
     fig, ax = plt.subplots()
     anzahl_produkte.plot(kind='bar', ax=ax)
     st.pyplot(fig)
+def main():
+    init_github() # Initialize the GithubContents object
+    init_credentials() # Loads the credentials from the Github data repository
+
+    if 'authentication' not in st.session_state:
+        st.session_state['authentication'] = False
+
+    if not st.session_state['authentication']:
+        options = st.sidebar.selectbox("Select a page", ["Login", "Register"])
+        if options == "Login":
+            login_page()
+        elif options == "Register":
+            register_page()
+    else:
+        with st.sidebar:
+            logout_button = st.button("Logout")
+            if logout_button:
+                st.session_state['authentication'] = False
+                st.rerun()
+        hauptanwendung(st.session_state['df_users']) 
 
 def produktsuche(df):
     st.sidebar.subheader("Produktsuche")
@@ -291,15 +305,16 @@ def produktsuche(df):
     if suche:
         suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
     if not suchergebnisse.empty:
-        st.write(f"Suchergebnisse für '{suche}':")
-        for i in range(0, len(suchergebnisse), 2):
-            cols = st.columns(2)
-            for idx in range(2):
-                if i + idx < len(suchergebnisse):
-                    with cols[idx]:
-                        show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
-    else:
-        st.write("Keine Produkte gefunden.")
+            st.write(f"Suchergebnisse für '{suche}':")
+            for i in range(0, len(suchergebnisse), 2):
+                cols = st.columns(2)
+                for idx in range(2):
+                    if i + idx < len(suchergebnisse):
+                        with cols[idx]:
+                            show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
+            else:
+                st.write("Keine Produkte gefunden.")
+
 
 def main():
     init_github()  # Initialize the GithubContents object
