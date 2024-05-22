@@ -56,7 +56,7 @@ def bild_speichern(bild, name):
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     bildpath = df.iloc[index]['Bildpfad']
-    if bildpath and os.path.exists(bildpath):
+    if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
         os.remove(bildpath)
     df.drop(index, inplace=True)
     speichern_oder_aktualisieren(df, pfad)
@@ -148,7 +148,7 @@ def init_tastevoyage():
 
 def show_item(item, index, df, favoriten_df=None):
     try:
-        if item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden ist
+        if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
             image = Image.open(item['Bildpfad'])
             image = image.resize((200, 400))  # Breite und Höhe festlegen
             st.image(image, caption=item['Name'])
@@ -156,7 +156,7 @@ def show_item(item, index, df, favoriten_df=None):
             st.write("Kein Bild vorhanden")
     except FileNotFoundError:
         st.write("Bild nicht gefunden")
-    st.markdown(f"### **{item['Name']}**")
+    st.markdown(f"### *{item['Name']}*")
     st.write(f"Kategorie: {item['Kategorie']}")
     st.write(f"Bewertung: {item['Bewertung']}")
     st.write(f"Notizen: {item['Notizen']}")
@@ -177,7 +177,8 @@ def show_item(item, index, df, favoriten_df=None):
 
 def hauptanwendung(benutzer_df):
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
-    auswahl = st.sidebar.radio("Menü:", ["Hauptmenü", "Favoriten", "Ausprobieren"])
+    auswahl = st.sidebar.radio("Menü:", ["Hauptmenü", "Favoriten", "Ausprobieren", "Statistiken"])
+    
     if st.sidebar.button('Neues Produkt'):
         st.session_state['show_form'] = True
     
@@ -191,6 +192,8 @@ def hauptanwendung(benutzer_df):
     else:
         favoriten_df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
     
+    produktsuche(df)  # Produktsuche-Funktion hinzufügen
+
     if auswahl == "Hauptmenü":
         if not df.empty:
             for i in range(0, len(df), 2):
@@ -199,7 +202,7 @@ def hauptanwendung(benutzer_df):
                     if i + idx < len(df):
                         with cols[idx]:
                             show_item(df.iloc[i + idx], i + idx, df, favoriten_df)
-
+    
     elif auswahl == "Favoriten":
         if not favoriten_df.empty:
             for i in range(0, len(favoriten_df), 2):
@@ -208,6 +211,9 @@ def hauptanwendung(benutzer_df):
                     if i + idx < len(favoriten_df):
                         with cols[idx]:
                             show_item(favoriten_df.iloc[i + idx], i + idx, favoriten_df)
+    
+    elif auswahl == "Statistiken":
+        statistik_seite(df)
 
     if 'show_form' in st.session_state and st.session_state['show_form']:
         with st.form(key='neues_produkt_form'):
@@ -240,6 +246,24 @@ def hauptanwendung(benutzer_df):
                 st.session_state['show_form'] = False
                 st.experimental_rerun()
 
+import matplotlib.pyplot as plt
+
+def statistik_seite(df):
+    st.title("Statistiken")
+    
+    # Durchschnittsbewertung pro Kategorie
+    avg_bewertung = df.groupby('Kategorie')['Bewertung'].mean().sort_values()
+    st.subheader("Durchschnittsbewertung pro Kategorie")
+    fig, ax = plt.subplots()
+    avg_bewertung.plot(kind='barh', ax=ax)
+    st.pyplot(fig)
+
+    # Anzahl der Produkte pro Kategorie
+    anzahl_produkte = df['Kategorie'].value_counts()
+    st.subheader("Anzahl der Produkte pro Kategorie")
+    fig, ax = plt.subplots()
+    anzahl_produkte.plot(kind='bar', ax=ax)
+    st.pyplot(fig)
 def main():
     init_github() # Initialize the GithubContents object
     init_credentials() # Loads the credentials from the Github data repository
@@ -259,7 +283,25 @@ def main():
             if logout_button:
                 st.session_state['authentication'] = False
                 st.rerun()
-        hauptanwendung(st.session_state['df_users'])
+        hauptanwendung(st.session_state['df_users']) 
+
+def produktsuche(df):
+    st.sidebar.subheader("Produktsuche")
+    suche = st.sidebar.text_input("Produktname eingeben")
+    suchergebnisse = pd.DataFrame()  # Hier initialisieren
+    if suche:
+        suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
+    if not suchergebnisse.empty:
+            st.write(f"Suchergebnisse für '{suche}':")
+            for i in range(0, len(suchergebnisse), 2):
+                cols = st.columns(2)
+                for idx in range(2):
+                    if i + idx < len(suchergebnisse):
+                        with cols[idx]:
+                            show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
+            else:
+                st.write("Keine Produkte gefunden.")
+
 
 if __name__ == "__main__":
     main()
