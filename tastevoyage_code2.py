@@ -6,25 +6,17 @@ import binascii
 from github_contents import GithubContents
 import bcrypt
 from PIL import Image
+import base64
 
 # Konfiguration und Hilfsfunktionen
 DATEN_PFAD = 'produkte.csv'
-BILD_ORDNER = 'produkt_bilder'
 BENUTZER_DATEN_PFAD = 'users.csv'
 DATA_FILE = "MyLoginTable.csv"
 DATA_FILE_MAIN = "tastevoyage.csv"
+BILD_ORDNER = 'produkt_bilder'  # Verzeichnis für Bilder auf GitHub
 DATA_COLUMNS = ['username', 'name', 'password']
 DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad']
 FAVORITEN_PFAD = 'favoriten.csv'
-
-# Datenpfade und Initialisierung
-if not os.path.exists(BILD_ORDNER):
-    os.makedirs(BILD_ORDNER)
-if not os.path.exists(BENUTZER_DATEN_PFAD):
-    benutzer_df = pd.DataFrame(columns=['username', 'password'])
-    benutzer_df.to_csv(BENUTZER_DATEN_PFAD, index=False)
-else:
-    benutzer_df = pd.read_csv(BENUTZER_DATEN_PFAD)
 
 def make_hashes(password):
     return hashlib.sha256(str.encode(password)).hexdigest()
@@ -48,17 +40,22 @@ def register_user(username, password, benutzer_df):
 def bild_speichern(bild, name):
     if bild is not None:
         bild_filename = name + "_" + bild.name
+        bild_bytes = bild.read()
+        bild_base64 = base64.b64encode(bild_bytes).decode('utf-8')
         bild_path = os.path.join(BILD_ORDNER, bild_filename)
-        with open(bild_path, "wb") as f:
-            f.write(bild.getbuffer())
-        return os.path.join(BILD_ORDNER, bild_filename)
+        
+        # Hochladen des Bildes auf GitHub
+        st.session_state.github.write_file(bild_path, bild_base64, "Added product image")
+        
+        return bild_path
     return ""
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     if 'Bildpfad' in df.columns:
         bildpath = df.at[index, 'Bildpfad']
-        if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
-            os.remove(bildpath)
+        if isinstance(bildpath, str) and bildpath:
+            # Entfernen des Bildes von GitHub
+            st.session_state.github.delete_file(bildpath, "Deleted product image")
     if index in df.index:
         df.drop(index, inplace=True)
         speichern_oder_aktualisieren(df, pfad)
@@ -67,9 +64,11 @@ def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
 
 def speichern_oder_aktualisieren(df, pfad):
     if pfad == DATA_FILE_MAIN:
-        st.session_state.github.write_df(pfad, df, "Updated tastevoyage data")
+        df_csv = df.to_csv(index=False)
+        st.session_state.github.write_file(pfad, df_csv, "Updated tastevoyage data")
     elif pfad == FAVORITEN_PFAD:
-        st.session_state.github.write_df(pfad, df, "Updated favorites data")
+        df_csv = df.to_csv(index=False)
+        st.session_state.github.write_file(pfad, df_csv, "Updated favorites data")
     else:
         df.to_csv(pfad, index=False)
 
@@ -169,7 +168,8 @@ def show_item(item, index, df, favoriten_df=None):
 
     try:
         if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
-            image = Image.open(item['Bildpfad'])
+            image_path = st.session_state.github.get_file(item['Bildpfad'])
+            image = Image.open(image_path)
             image = image.resize((200, 400))  # Breite und Höhe festlegen
             st.image(image, caption=item['Name'])
         else:
@@ -245,7 +245,7 @@ def hauptanwendung(benutzer_df):
                     if bild:
                         bild_path = bild_speichern(bild, name)
                         if st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad']:
-                            os.remove(st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad'])
+                            st.session_state.github.delete_file(st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad'], "Deleted old product image")
                     else:
                         bild_path = st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad']
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Kategorie'] = kategorie
