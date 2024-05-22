@@ -62,8 +62,13 @@ def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     df.drop(index, inplace=True)
     speichern_oder_aktualisieren(df, pfad)
 
-def speichern_oder_aktualisieren(df, pfad=DATEN_PFAD):
-    df.to_csv(pfad, index=False)
+def speichern_oder_aktualisieren(df, pfad):
+    if pfad == DATA_FILE_MAIN:
+        st.session_state.github.write_df(pfad, df, "Updated tastevoyage data")
+    elif pfad == DATA_FILE_FILTERED:
+        st.session_state.github.write_df(pfad, df, "Updated filtered tastevoyage data")
+    else:
+        df.to_csv(pfad, index=False)
 
 def login_page():
     """ Login an existing user. """
@@ -173,15 +178,15 @@ def show_item(item, index, df, favoriten_df=None):
         st.session_state['show_form'] = True
         st.session_state['edit_index'] = index
     elif option == "Löschen":
-        bild_und_eintrag_loeschen(index, df)
-        st.experimental_rerun()
+        bild_und_eintrag_loeschen(index, df, DATA_FILE_MAIN)
+        st.rerun()
     elif option == "Zu Favoriten hinzufügen" and favoriten_df is not None:
         favoriten_df = pd.concat([favoriten_df, pd.DataFrame([item])], ignore_index=True)
-        speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
+        speichern_oder_aktualisieren(favoriten_df, DATA_FILE_FILTERED)
         st.success(f"{item['Name']} wurde zu den Favoriten hinzugefügt!")
     elif option == "Entfernen" and favoriten_df is None:
-        bild_und_eintrag_loeschen(index, df, FAVORITEN_PFAD)
-        st.experimental_rerun()
+        bild_und_eintrag_loeschen(index, df, DATA_FILE_FILTERED)
+        st.rerun()
 
 def hauptanwendung(benutzer_df):
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
@@ -192,15 +197,6 @@ def hauptanwendung(benutzer_df):
     
     init_tastevoyage()
     init_filtered_df()
-    # if os.path.exists(DATEN_PFAD) and os.path.getsize(DATEN_PFAD) > 0:
-    #     df = pd.read_csv(DATEN_PFAD)
-    # else:
-    #     df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID'])
-    
-    # if os.path.exists(FAVORITEN_PFAD) and os.path.getsize(FAVORITEN_PFAD) > 0:
-    #     favoriten_df = pd.read_csv(FAVORITEN_PFAD)
-    # else:
-    #     favoriten_df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID'])
     df = st.session_state.df_tastevoyage[st.session_state.df_tastevoyage['Benutzer_ID'] == st.session_state['username']]
     favoriten_df = st.session_state.df_filtered[st.session_state.df_filtered['Benutzer_ID'] == st.session_state['username']]
 
@@ -252,12 +248,12 @@ def hauptanwendung(benutzer_df):
                     del st.session_state['edit_index']
                 else:
                     bild_path = bild_speichern(bild, name) if bild else ""
-                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path, st.session_state['username']]], columns=DATA_COLUMNS_TV)
                     df = pd.concat([df, neues_produkt], ignore_index=True)
-                speichern_oder_aktualisieren(df)
+                speichern_oder_aktualisieren(df, DATA_FILE_MAIN)
                 st.success("Produkt erfolgreich gespeichert!")
                 st.session_state['show_form'] = False
-                st.experimental_rerun()
+                st.rerun()
 
 import matplotlib.pyplot as plt
 
@@ -277,26 +273,6 @@ def statistik_seite(df):
     fig, ax = plt.subplots()
     anzahl_produkte.plot(kind='bar', ax=ax)
     st.pyplot(fig)
-def main():
-    init_github() # Initialize the GithubContents object
-    init_credentials() # Loads the credentials from the Github data repository
-
-    if 'authentication' not in st.session_state:
-        st.session_state['authentication'] = False
-
-    if not st.session_state['authentication']:
-        options = st.sidebar.selectbox("Select a page", ["Login", "Register"])
-        if options == "Login":
-            login_page()
-        elif options == "Register":
-            register_page()
-    else:
-        with st.sidebar:
-            logout_button = st.button("Logout")
-            if logout_button:
-                st.session_state['authentication'] = False
-                st.rerun()
-        hauptanwendung(st.session_state['df_users']) 
 
 def produktsuche(df):
     st.sidebar.subheader("Produktsuche")
@@ -305,16 +281,15 @@ def produktsuche(df):
     if suche:
         suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
     if not suchergebnisse.empty:
-            st.write(f"Suchergebnisse für '{suche}':")
-            for i in range(0, len(suchergebnisse), 2):
-                cols = st.columns(2)
-                for idx in range(2):
-                    if i + idx < len(suchergebnisse):
-                        with cols[idx]:
-                            show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
-            else:
-                st.write("Keine Produkte gefunden.")
-
+        st.write(f"Suchergebnisse für '{suche}':")
+        for i in range(0, len(suchergebnisse), 2):
+            cols = st.columns(2)
+            for idx in range(2):
+                if i + idx < len(suchergebnisse):
+                    with cols[idx]:
+                        show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
+    else:
+        st.write("Keine Produkte gefunden.")
 
 def main():
     init_github()  # Initialize the GithubContents object
