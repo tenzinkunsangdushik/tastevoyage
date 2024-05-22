@@ -13,8 +13,9 @@ BILD_ORDNER = 'produkt_bilder'
 BENUTZER_DATEN_PFAD = 'users.csv'
 DATA_FILE = "MyLoginTable.csv"
 DATA_FILE_MAIN = "tastevoyage.csv"
+DATA_FILE_FILTERED = 'filteredtastevoyage.csv'
 DATA_COLUMNS = ['username', 'name', 'password']
-DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad']
+DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID']
 FAVORITEN_PFAD = 'favoriten.csv'
 
 # Datenpfade und Initialisierung
@@ -146,6 +147,13 @@ def init_tastevoyage():
     else:
         st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
+
+def init_filtered_df():
+    if st.session_state.github.file_exists(DATA_FILE_FILTERED):
+        st.session_state.df_filtered = st.session_state.github.read_df(DATA_FILE_FILTERED)
+    else:
+        st.session_state.df_filtered = pd.DataFrame(columns=DATA_COLUMNS_TV)
+
 def show_item(item, index, df, favoriten_df=None):
     try:
         if item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden ist
@@ -156,7 +164,7 @@ def show_item(item, index, df, favoriten_df=None):
             st.write("Kein Bild vorhanden")
     except FileNotFoundError:
         st.write("Bild nicht gefunden")
-    st.markdown(f"### {item['Name']}")
+    st.markdown(f"### *{item['Name']}*")
     st.write(f"Kategorie: {item['Kategorie']}")
     st.write(f"Bewertung: {item['Bewertung']}")
     st.write(f"Notizen: {item['Notizen']}")
@@ -182,16 +190,20 @@ def hauptanwendung(benutzer_df):
     if st.sidebar.button('Neues Produkt'):
         st.session_state['show_form'] = True
     
-    if os.path.exists(DATEN_PFAD) and os.path.getsize(DATEN_PFAD) > 0:
-        df = pd.read_csv(DATEN_PFAD)
-    else:
-        df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+    init_tastevoyage()
+    init_filtered_df()
+    # if os.path.exists(DATEN_PFAD) and os.path.getsize(DATEN_PFAD) > 0:
+    #     df = pd.read_csv(DATEN_PFAD)
+    # else:
+    #     df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID'])
     
-    if os.path.exists(FAVORITEN_PFAD) and os.path.getsize(FAVORITEN_PFAD) > 0:
-        favoriten_df = pd.read_csv(FAVORITEN_PFAD)
-    else:
-        favoriten_df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
-    
+    # if os.path.exists(FAVORITEN_PFAD) and os.path.getsize(FAVORITEN_PFAD) > 0:
+    #     favoriten_df = pd.read_csv(FAVORITEN_PFAD)
+    # else:
+    #     favoriten_df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID'])
+    df = st.session_state.df_tastevoyage[st.session_state.df_tastevoyage['Benutzer_ID'] == st.session_state['username']]
+    favoriten_df = st.session_state.df_filtered[st.session_state.df_filtered['Benutzer_ID'] == st.session_state['username']]
+
     produktsuche(df)  # Produktsuche-Funktion hinzufügen
 
     if auswahl == "Hauptmenü":
@@ -236,6 +248,7 @@ def hauptanwendung(benutzer_df):
                     df.at[st.session_state['edit_index'], 'Bewertung'] = bewertung
                     df.at[st.session_state['edit_index'], 'Notizen'] = notizen
                     df.at[st.session_state['edit_index'], 'Bildpfad'] = bild_path
+                    df.at[st.session_state['edit_index'], 'Benutzer_ID'] = st.session_state['username']
                     del st.session_state['edit_index']
                 else:
                     bild_path = bild_speichern(bild, name) if bild else ""
@@ -324,5 +337,5 @@ def main():
                 st.rerun()
         hauptanwendung(st.session_state['df_users'])
 
-if __name__ == "__main__":
+if _name_ == "_main_":
     main()
