@@ -54,12 +54,16 @@ def bild_speichern(bild, name):
         return os.path.join(BILD_ORDNER, bild_filename)
     return ""
 
-def bild_und_eintrag_loeschen(index, df, pfad):
-    bildpath = df.iloc[index]['Bildpfad']
-    if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
-        os.remove(bildpath)
-    df.drop(index, inplace=True)
-    speichern_oder_aktualisieren(df, pfad)
+def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
+    if 'Bildpfad' in df.columns:
+        bildpath = df.at[index, 'Bildpfad']
+        if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
+            os.remove(bildpath)
+    if index in df.index:
+        df.drop(index, inplace=True)
+        speichern_oder_aktualisieren(df, pfad)
+    else:
+        st.error(f"Index {index} not found in dataframe. Unable to delete.")
 
 def speichern_oder_aktualisieren(df, pfad):
     if pfad == DATA_FILE_MAIN:
@@ -152,6 +156,17 @@ def init_tastevoyage():
         st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
 def show_item(item, index, df, favoriten_df=None):
+    if 'Bildpfad' not in item:
+        item['Bildpfad'] = ""
+    if 'Kategorie' not in item:
+        item['Kategorie'] = ""
+    if 'Name' not in item:
+        item['Name'] = ""
+    if 'Bewertung' not in item:
+        item['Bewertung'] = ""
+    if 'Notizen' not in item:
+        item['Notizen'] = ""
+
     try:
         if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
             image = Image.open(item['Bildpfad'])
