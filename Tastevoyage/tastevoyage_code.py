@@ -13,8 +13,9 @@ BILD_ORDNER = 'produkt_bilder'
 BENUTZER_DATEN_PFAD = 'users.csv'
 DATA_FILE = "MyLoginTable.csv"
 DATA_FILE_MAIN = "tastevoyage.csv"
+DATA_FILE_FILTERED = 'filteredtastevoyage.csv'
 DATA_COLUMNS = ['username', 'name', 'password']
-DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad']
+DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Benutzer_ID']
 FAVORITEN_PFAD = 'favoriten.csv'
 
 # Datenpfade und Initialisierung
@@ -54,15 +55,15 @@ def bild_speichern(bild, name):
         return os.path.join(BILD_ORDNER, bild_filename)
     return ""
 
-def bild_und_eintrag_loeschen(index, df, pfad=DATA_FILE_MAIN):
+def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     bildpath = df.iloc[index]['Bildpfad']
-    if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
+    if bildpath and os.path.exists(bildpath):
         os.remove(bildpath)
     df.drop(index, inplace=True)
     speichern_oder_aktualisieren(df, pfad)
 
-def speichern_oder_aktualisieren(df, pfad=DATA_FILE_MAIN):
-    st.session_state.github.write_df(pfad, df, "updated product data")
+def speichern_oder_aktualisieren(df, pfad=DATEN_PFAD):
+    df.to_csv(pfad, index=False)
 
 def login_page():
     """ Login an existing user. """
@@ -146,34 +147,13 @@ def init_tastevoyage():
     else:
         st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
-def show_item(item, index, df, favoriten_df=None):
-    try:
-        if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
-            image = Image.open(item['Bildpfad'])
-            image = image.resize((200, 400))  # Breite und Höhe festlegen
-            st.image(image, caption=item['Name'])
-        else:
-            st.write("Kein Bild vorhanden")
-    except FileNotFoundError:
-        st.write("Bild nicht gefunden")
-    st.markdown(f"### *{item['Name']}*")
-    st.write(f"Kategorie: {item['Kategorie']}")
-    st.write(f"Bewertung: {item['Bewertung']}")
-    st.write(f"Notizen: {item['Notizen']}")
-    option = st.selectbox("Optionen:", ["Aktion wählen", "Bearbeiten", "Löschen"] + (["Zu Favoriten hinzufügen"] if favoriten_df is not None else ["Entfernen"]), key=f"optionen{index}")
-    if option == "Bearbeiten":
-        st.session_state['show_form'] = True
-        st.session_state['edit_index'] = index
-    elif option == "Löschen":
-        bild_und_eintrag_loeschen(index, df)
-        st.experimental_rerun()
-    elif option == "Zu Favoriten hinzufügen" and favoriten_df is not None:
-        favoriten_df = pd.concat([favoriten_df, pd.DataFrame([item])], ignore_index=True)
-        speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
-        st.success(f"{item['Name']} wurde zu den Favoriten hinzugefügt!")
-    elif option == "Entfernen" and favoriten_df is None:
-        bild_und_eintrag_loeschen(index, df, FAVORITEN_PFAD)
-        st.experimental_rerun()
+
+def init_filtered_df():
+    if st.session_state.github.file_exists(DATA_FILE_FILTERED):
+        st.session_state.df_filtered = st.session_state.github.read_df(DATA_FILE_FILTERED)
+    else:
+        st.session_state.df_filtered = pd.DataFrame(columns=DATA_COLUMNS_TV)
+
 
 def hauptanwendung(benutzer_df):
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
@@ -183,13 +163,23 @@ def hauptanwendung(benutzer_df):
         st.session_state['show_form'] = True
     
     init_tastevoyage()
-    df = st.session_state.df_tastevoyage
+    init_filtered_df()
+    # if os.path.exists(DATEN_PFAD) and os.path.getsize(DATEN_PFAD) > 0:
+    #     df = pd.read_csv(DATEN_PFAD)
+    # else:
+    #     df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID'])
     
-    if os.path.exists(FAVORITEN_PFAD) and os.path.getsize(FAVORITEN_PFAD) > 0:
-        favoriten_df = pd.read_csv(FAVORITEN_PFAD)
-    else:
-        favoriten_df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+    # if os.path.exists(FAVORITEN_PFAD) and os.path.getsize(FAVORITEN_PFAD) > 0:
+    #     favoriten_df = pd.read_csv(FAVORITEN_PFAD)
+    # else:
+    #     favoriten_df = pd.DataFrame(columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad', 'Benutzer_ID'])
+   
+    df = st.session_state.df_tastevoyage[st.session_state.df_tastevoyage['Benutzer_ID'] == st.session_state['username']]
+    favoriten_df = st.session_state.df_filtered[st.session_state.df_filtered['Benutzer_ID'] == st.session_state['username']]
     
+    st.dataframe(df)
+    st.dataframe(favoriten_df)
+
     produktsuche(df)  # Produktsuche-Funktion hinzufügen
 
     if auswahl == "Hauptmenü":
@@ -218,31 +208,57 @@ def hauptanwendung(benutzer_df):
             kategorie = st.text_input("Kategorie des Produkts:", value="" if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Kategorie'])
             name = st.text_input("Name des Produkts:", value="" if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Name'])
             bewertung = st.slider("Bewertung:", 1, 10, 5 if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Bewertung'])
-            bild = st.file_uploader("Bild des Produkts hochladen:", type=['jpg', 'png'], key='bild')
+            #bild = st.file_uploader("Bild des Produkts hochladen:", type=['jpg', 'png'], key='bild')
             notizen = st.text_area("Notizen zum Produkt:", value="" if 'edit_index' not in st.session_state else df.iloc[st.session_state['edit_index']]['Notizen'])
             submit_button = st.form_submit_button("Produkt speichern")
+            benutzer = st.session_state['username']
+
+
+            new_entry = {
+                DATA_COLUMNS_TV[0]:  kategorie,  
+                DATA_COLUMNS_TV[1]:  name,  #
+                DATA_COLUMNS_TV[2]:  bewertung,  # 
+                DATA_COLUMNS_TV[3]:  notizen,  # 
+                DATA_COLUMNS_TV[4]:  benutzer,  # 
+            } 
+
+            # check wether all data is defined, otherwise show an error message
+            for key, value in new_entry.items():
+                if value == "":
+                    st.sidebar.error(f"Bitte ergänze das Feld '{key}'")
+                    return
+
             if submit_button:
-                if 'edit_index' in st.session_state:
-                    if bild:
-                        bild_path = bild_speichern(bild, name)
-                        if df.iloc[st.session_state['edit_index']]['Bildpfad']:
-                            os.remove(df.iloc[st.session_state['edit_index']]['Bildpfad'])
-                    else:
-                        bild_path = df.iloc[st.session_state['edit_index']]['Bildpfad']
-                    df.at[st.session_state['edit_index'], 'Kategorie'] = kategorie
-                    df.at[st.session_state['edit_index'], 'Name'] = name
-                    df.at[st.session_state['edit_index'], 'Bewertung'] = bewertung
-                    df.at[st.session_state['edit_index'], 'Notizen'] = notizen
-                    df.at[st.session_state['edit_index'], 'Bildpfad'] = bild_path
-                    del st.session_state['edit_index']
-                else:
-                    bild_path = bild_speichern(bild, name) if bild else ""
-                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
-                    df = pd.concat([df, neues_produkt], ignore_index=True)
-                speichern_oder_aktualisieren(df)
-                st.success("Produkt erfolgreich gespeichert!")
-                st.session_state['show_form'] = False
-                st.experimental_rerun()
+                new_entry_df = pd.DataFrame([new_entry])
+                print(new_entry_df)
+                st.session_state.df_tastevoyage = pd.concat([st.session_state.df_tastevoyage, new_entry_df], ignore_index=True)
+
+                # Save the updated DataFrame to GitHub
+                msg = f"Add contact new entry to the file {DATA_FILE_MAIN}"
+                st.session_state.github.write_df(DATA_FILE_MAIN, st.session_state.df_tastevoyage, msg)
+                # if 'edit_index' in st.session_state:
+                #     if bild:
+                #         bild_path = bild_speichern(bild, name)
+                #         if df.iloc[st.session_state['edit_index']]['Bildpfad']:
+                #             os.remove(df.iloc[st.session_state['edit_index']]['Bildpfad'])
+                #     else:
+                #         bild_path = df.iloc[st.session_state['edit_index']]['Bildpfad']
+                #     df[df[]]
+                #     df.at[st.session_state['edit_index'], 'Kategorie'] = kategorie
+                #     df.at[st.session_state['edit_index'], 'Name'] = name
+                #     df.at[st.session_state['edit_index'], 'Bewertung'] = bewertung
+                #     df.at[st.session_state['edit_index'], 'Notizen'] = notizen
+                #     df.at[st.session_state['edit_index'], 'Bildpfad'] = bild_path
+                #     df.at[st.session_state['edit_index'], 'Benutzer_ID'] = benutzer
+                #     del st.session_state['edit_index']
+                # else:
+                #     bild_path = bild_speichern(bild, name) if bild else ""
+                #     neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad'])
+                #     df = pd.concat([df, neues_produkt], ignore_index=True)
+                # speichern_oder_aktualisieren(df)
+                # st.success("Produkt erfolgreich gespeichert!")
+                # st.session_state['show_form'] = False
+                # st.experimental_rerun()
 
 import matplotlib.pyplot as plt
 
@@ -262,7 +278,6 @@ def statistik_seite(df):
     fig, ax = plt.subplots()
     anzahl_produkte.plot(kind='bar', ax=ax)
     st.pyplot(fig)
-
 def main():
     init_github() # Initialize the GithubContents object
     init_credentials() # Loads the credentials from the Github data repository
@@ -291,15 +306,37 @@ def produktsuche(df):
     if suche:
         suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
     if not suchergebnisse.empty:
-        st.write(f"Suchergebnisse für '{suche}':")
-        for i in range(0, len(suchergebnisse), 2):
-            cols = st.columns(2)
-            for idx in range(2):
-                if i + idx < len(suchergebnisse):
-                    with cols[idx]:
-                        show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
-    else:
-        st.write("Keine Produkte gefunden.")
+            st.write(f"Suchergebnisse für '{suche}':")
+            for i in range(0, len(suchergebnisse), 2):
+                cols = st.columns(2)
+                for idx in range(2):
+                    if i + idx < len(suchergebnisse):
+                        with cols[idx]:
+                            show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
+            else:
+                st.write("Keine Produkte gefunden.")
 
-if __name__ == "__main__":
+
+def main():
+    init_github()  # Initialize the GithubContents object
+    init_credentials()  # Loads the credentials from the Github data repository
+
+    if 'authentication' not in st.session_state:
+        st.session_state['authentication'] = False
+
+    if not st.session_state['authentication']:
+        options = st.sidebar.selectbox("Select a page", ["Login", "Register"])
+        if options == "Login":
+            login_page()
+        elif options == "Register":
+            register_page()
+    else:
+        with st.sidebar:
+            logout_button = st.button("Logout")
+            if logout_button:
+                st.session_state['authentication'] = False
+                st.rerun()
+        hauptanwendung(st.session_state['df_users'])
+
+if _name_ == "_main_":
     main()
