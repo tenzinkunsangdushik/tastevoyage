@@ -305,8 +305,7 @@ def produktsuche(df):
                 if i + idx < len(suchergebnisse):
                     with cols[idx]:
                         show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
-    else:
-        st.write("Keine Produkte gefunden.")
+    )
 
 def main():
     init_github()  # Initialize the GithubContents object
