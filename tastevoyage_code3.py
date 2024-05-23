@@ -185,6 +185,7 @@ def show_item(item, index, df, favoriten_df=None):
         st.success(f"{item['Name']} wurde aus den Favoriten entfernt!")
         st.experimental_rerun()
 
+
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     if index in df.index:
         df.drop(index, inplace=True)
