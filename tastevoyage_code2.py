@@ -115,30 +115,29 @@ def init_github():
     
 def init_credentials():
     """Initialize or load the dataframe."""
-    if 'df_users' in st.session_state:
-        pass
-
-    if st.session_state.github.file_exists(DATA_FILE):
-        st.session_state.df_users = st.session_state.github.read_df(DATA_FILE)
-    else:
-        st.session_state.df_users = pd.DataFrame(columns=DATA_COLUMNS)
+    if 'df_users' not in st.session_state:
+        if st.session_state.github.file_exists(DATA_FILE):
+            st.session_state.df_users = st.session_state.github.read_df(DATA_FILE)
+        else:
+            st.session_state.df_users = pd.DataFrame(columns=DATA_COLUMNS)
 
 def init_tastevoyage():
-    if st.session_state.github.file_exists(DATA_FILE_MAIN):
-        st.session_state.df_tastevoyage = st.session_state.github.read_df(DATA_FILE_MAIN)
-    else:
-        st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
-
+    if 'df_tastevoyage' not in st.session_state:
+        if st.session_state.github.file_exists(DATA_FILE_MAIN):
+            st.session_state.df_tastevoyage = st.session_state.github.read_df(DATA_FILE_MAIN)
+        else:
+            st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
 def init_filtered_df():
-    if st.session_state.github.file_exists(DATA_FILE_FILTERED):
-        st.session_state.df_filtered = st.session_state.github.read_df(DATA_FILE_FILTERED)
-    else:
-        st.session_state.df_filtered = pd.DataFrame(columns=DATA_COLUMNS_TV)
+    if 'df_filtered' not in st.session_state:
+        if st.session_state.github.file_exists(DATA_FILE_FILTERED):
+            st.session_state.df_filtered = st.session_state.github.read_df(DATA_FILE_FILTERED)
+        else:
+            st.session_state.df_filtered = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
 def show_item(item, index, df, favoriten_df=None):
-    if 'Bildpfad' not in item:
-        item['Bildpfad'] = ""
+    if 'Bilddaten' not in item:
+        item['Bilddaten'] = ""
     if 'Kategorie' not in item:
         item['Kategorie'] = ""
     if 'Name' not in item:
@@ -149,14 +148,15 @@ def show_item(item, index, df, favoriten_df=None):
         item['Notizen'] = ""
 
     try:
-        if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob ein Bildpfad vorhanden und ein String ist
-            image = Image.open(item['Bildpfad'])
+        if isinstance(item['Bilddaten'], str) and item['Bilddaten']:  # Überprüfen, ob Bilddaten vorhanden und ein String sind
+            img_data = base64.b64decode(item['Bilddaten'])
+            image = Image.open(io.BytesIO(img_data))
             image = image.resize((200, 400))  # Breite und Höhe festlegen
             st.image(image, caption=item['Name'])
         else:
             st.write("Kein Bild vorhanden")
-    except FileNotFoundError:
-        st.write("Bild nicht gefunden")
+    except Exception as e:
+        st.write("Fehler beim Laden des Bildes:", e)
     st.markdown(f"### {item['Name']}")
     st.write(f"Kategorie: {item['Kategorie']}")
     st.write(f"Bewertung: {item['Bewertung']}")
@@ -172,11 +172,20 @@ def show_item(item, index, df, favoriten_df=None):
         favoriten_df = pd.concat([favoriten_df, pd.DataFrame([item])], ignore_index=True)
         speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
         st.success(f"{item['Name']} wurde zu den Favoriten hinzugefügt!")
-    elif option == "Entfernen" and favoriten_df is None:
-        bild_und_eintrag_loeschen(index, df, FAVORITEN_PFAD)
+    elif option == "Entfernen" and favoriten_df is not None:
+        favoriten_df.drop(index, inplace=True)
+        speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
+        st.success(f"{item['Name']} wurde aus den Favoriten entfernt!")
         st.rerun()
 
-def hauptanwendung(benutzer_df):
+def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
+    if 'Bilddaten' in df.columns:
+        df.drop(index, inplace=True)
+        speichern_oder_aktualisieren(df, pfad)
+    else:
+        st.error(f"Index {index} not found in dataframe. Unable to delete.")
+
+def hauptanwendung():
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
     auswahl = st.sidebar.radio("Menü:", ["Hauptmenü", "Favoriten", "Statistiken"])
     
@@ -224,20 +233,18 @@ def hauptanwendung(benutzer_df):
             if submit_button:
                 if 'edit_index' in st.session_state:
                     if bild:
-                        bild_path = bild_speichern(bild, name)
-                        if st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad']:
-                            os.remove(st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad'])
+                        bild_data = bild_speichern_base64(bild)
                     else:
-                        bild_path = st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad']
+                        bild_data = st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bilddaten']
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Kategorie'] = kategorie
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Name'] = name
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Bewertung'] = bewertung
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Notizen'] = notizen
-                    st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Bildpfad'] = bild_path
+                    st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Bilddaten'] = bild_data
                     del st.session_state['edit_index']
                 else:
-                    bild_path = bild_speichern(bild, name) if bild else ""
-                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_path]], columns=DATA_COLUMNS_TV)
+                    bild_data = bild_speichern_base64(bild) if bild else ""
+                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_data]], columns=DATA_COLUMNS_TV)
                     st.session_state.df_tastevoyage = pd.concat([st.session_state.df_tastevoyage, neues_produkt], ignore_index=True)
                 speichern_oder_aktualisieren(st.session_state.df_tastevoyage, DATA_FILE_MAIN)
                 st.success("Produkt erfolgreich gespeichert!")
@@ -297,7 +304,7 @@ def main():
             if logout_button:
                 st.session_state['authentication'] = False
                 st.rerun()
-        hauptanwendung(st.session_state['df_users'])
+        hauptanwendung()
 
 if __name__ == "__main__":
     main()
