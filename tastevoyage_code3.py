@@ -12,7 +12,10 @@ import io
 
 # Konfiguration und Hilfsfunktionen
 DATEN_PFAD = 'produkte.csv'
-BILD_ORDNER = 'produkt_bilder'
+BILD_ORDNER = 'produkt_bilder'  # Lokaler Ordner
+if not os.path.exists(BILD_ORDNER):
+    os.makedirs(BILD_ORDNER)
+
 BENUTZER_DATEN_PFAD = 'users.csv'
 DATA_FILE = "MyLoginTable.csv"
 DATA_FILE_MAIN = "tastevoyage.csv"
@@ -21,21 +24,12 @@ DATA_COLUMNS = ['username', 'name', 'password']
 DATA_COLUMNS_TV = ['username', 'Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad']
 FAVORITEN_PFAD = 'favoriten.csv'
 
-# Initialisiere Github-Verbindung
-def init_github():
-    """Initialize the GithubContents object."""
-    if 'github' not in st.session_state:
-        st.session_state.github = GithubContents(
-            st.secrets["github"]["owner"],
-            st.secrets["github"]["repo"],
-            st.secrets["github"]["token"])
-        print("github initialized")
-
 # Bild speichern und Pfad zurückgeben
 def bild_speichern(bild, bild_name):
     if bild is not None:
         bild_pfad = os.path.join(BILD_ORDNER, bild_name)
-        st.session_state.github.write(bild_pfad, bild.read(), "Bild hochgeladen")
+        with open(bild_pfad, "wb") as f:
+            f.write(bild.read())
         return bild_pfad
     return ""
 
@@ -158,8 +152,7 @@ def show_item(item, index, df, favoriten_df=None):
 
     try:
         if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob Bildpfad vorhanden und ein String ist
-            image_url = get_image_url(item['Bildpfad'])
-            st.image(image_url, caption=item['Name'])
+            st.image(item['Bildpfad'], caption=item['Name'])
         else:
             st.write("Kein Bild vorhanden")
     except Exception as e:
