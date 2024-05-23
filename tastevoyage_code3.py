@@ -184,6 +184,9 @@ def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
         speichern_oder_aktualisieren(df, pfad)
     else:
         st.error(f"Index {index} not found in dataframe. Unable to delete.")
+        
+# Aktualisiere die DATA_COLUMNS_TV mit einer username Spalte
+DATA_COLUMNS_TV = ['username', 'Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bilddaten']
 
 def hauptanwendung():
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
@@ -201,26 +204,30 @@ def hauptanwendung():
     
     produktsuche(st.session_state.df_tastevoyage)  # Produktsuche-Funktion hinzufügen
 
+    # Filtere die Daten basierend auf dem aktuellen Benutzer
+    user_data = st.session_state.df_tastevoyage[st.session_state.df_tastevoyage['username'] == st.session_state['username']]
+
     if auswahl == "Hauptmenü":
-        if not st.session_state.df_tastevoyage.empty:
-            for i in range(0, len(st.session_state.df_tastevoyage), 2):
+        if not user_data.empty:
+            for i in range(0, len(user_data), 2):
                 cols = st.columns(2)
                 for idx in range(2):
-                    if i + idx < len(st.session_state.df_tastevoyage):
+                    if i + idx < len(user_data):
                         with cols[idx]:
-                            show_item(st.session_state.df_tastevoyage.iloc[i + idx], i + idx, st.session_state.df_tastevoyage, favoriten_df)
+                            show_item(user_data.iloc[i + idx], i + idx, user_data, favoriten_df)
     
     elif auswahl == "Favoriten":
-        if not favoriten_df.empty:
-            for i in range(0, len(favoriten_df), 2):
+        user_favorites = favoriten_df[favoriten_df['username'] == st.session_state['username']]
+        if not user_favorites.empty:
+            for i in range(0, len(user_favorites), 2):
                 cols = st.columns(2)
                 for idx in range(2):
-                    if i + idx < len(favoriten_df):
+                    if i + idx < len(user_favorites):
                         with cols[idx]:
-                            show_item(favoriten_df.iloc[i + idx], i + idx, favoriten_df)
+                            show_item(user_favorites.iloc[i + idx], i + idx, user_favorites)
     
     elif auswahl == "Statistiken":
-        statistik_seite(st.session_state.df_tastevoyage)
+        statistik_seite(user_data)
 
     if 'show_form' in st.session_state and st.session_state['show_form']:
         with st.form(key='neues_produkt_form'):
@@ -244,38 +251,20 @@ def hauptanwendung():
                     del st.session_state['edit_index']
                 else:
                     bild_data = bild_speichern_base64(bild) if bild else ""
-                    neues_produkt = pd.DataFrame([[kategorie, name, bewertung, notizen, bild_data]], columns=DATA_COLUMNS_TV)
+                    neues_produkt = pd.DataFrame([[st.session_state['username'], kategorie, name, bewertung, notizen, bild_data]], columns=DATA_COLUMNS_TV)
                     st.session_state.df_tastevoyage = pd.concat([st.session_state.df_tastevoyage, neues_produkt], ignore_index=True)
                 speichern_oder_aktualisieren(st.session_state.df_tastevoyage, DATA_FILE_MAIN)
                 st.success("Produkt erfolgreich gespeichert!")
                 st.session_state['show_form'] = False
                 st.rerun()
 
-import matplotlib.pyplot as plt
-
-def statistik_seite(df):
-    st.title("Statistiken")
-    
-    # Durchschnittsbewertung pro Kategorie
-    avg_bewertung = df.groupby('Kategorie')['Bewertung'].mean().sort_values()
-    st.subheader("Durchschnittsbewertung pro Kategorie")
-    fig, ax = plt.subplots()
-    avg_bewertung.plot(kind='barh', ax=ax)
-    st.pyplot(fig)
-
-    # Anzahl der Produkte pro Kategorie
-    anzahl_produkte = df['Kategorie'].value_counts()
-    st.subheader("Anzahl der Produkte pro Kategorie")
-    fig, ax = plt.subplots()
-    anzahl_produkte.plot(kind='bar', ax=ax)
-    st.pyplot(fig)
-
 def produktsuche(df):
     st.sidebar.subheader("Produktsuche")
     suche = st.sidebar.text_input("Produktname eingeben")
     suchergebnisse = pd.DataFrame()  # Hier initialisieren
     if suche:
-        suchergebnisse = df[df['Name'].str.contains(suche, case=False, na=False)]
+        # Filtere die Suchergebnisse basierend auf dem aktuellen Benutzer
+        suchergebnisse = df[(df['username'] == st.session_state['username']) & df['Name'].str.contains(suche, case=False, na=False)]
     if not suchergebnisse.empty:
         st.write(f"Suchergebnisse für '{suche}':")
         for i in range(0, len(suchergebnisse), 2):
@@ -284,27 +273,6 @@ def produktsuche(df):
                 if i + idx < len(suchergebnisse):
                     with cols[idx]:
                         show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
-
-def main():
-    init_github()  # Initialize the GithubContents object
-    init_credentials()  # Loads the credentials from the Github data repository
-
-    if 'authentication' not in st.session_state:
-        st.session_state['authentication'] = False
-
-    if not st.session_state['authentication']:
-        options = st.sidebar.selectbox("Select a page", ["Login", "Register"])
-        if options == "Login":
-            login_page()
-        elif options == "Register":
-            register_page()
-    else:
-        with st.sidebar:
-            logout_button = st.button("Logout")
-            if logout_button:
-                st.session_state['authentication'] = False
-                st.rerun()
-        hauptanwendung()
 
 if __name__ == "__main__":
     main()
