@@ -39,6 +39,13 @@ def bild_speichern(bild, bild_name):
         return bild_pfad
     return ""
 
+# Manuell die URL des Bildes konstruieren
+def get_image_url(filepath):
+    owner = st.secrets["github"]["owner"]
+    repo = st.secrets["github"]["repo"]
+    branch = "main"  # Oder der verwendete Branch
+    return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{filepath}"
+
 # Speichern oder Aktualisieren der CSV-Datei auf GitHub
 def speichern_oder_aktualisieren(df, pfad):
     if pfad == DATA_FILE_MAIN or pfad == FAVORITEN_PFAD or pfad == DATA_FILE:
@@ -151,7 +158,7 @@ def show_item(item, index, df, favoriten_df=None):
 
     try:
         if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob Bildpfad vorhanden und ein String ist
-            image_url = st.session_state.github.get_file_url(item['Bildpfad'])
+            image_url = get_image_url(item['Bildpfad'])
             st.image(image_url, caption=item['Name'])
         else:
             st.write("Kein Bild vorhanden")
