@@ -124,6 +124,10 @@ def init_tastevoyage():
     print("Tastevoyage DataFrame nach dem Laden:")
     print(st.session_state.df_tastevoyage)
 
+    # Überprüfe, ob 'username' in den Spalten enthalten ist
+    if 'username' not in st.session_state.df_tastevoyage.columns:
+        print("Warnung: 'username' Spalte nicht im DataFrame vorhanden!")
+
 def init_filtered_df():
     if 'df_filtered' not in st.session_state:
         if st.session_state.github.file_exists(DATA_FILE_FILTERED):
