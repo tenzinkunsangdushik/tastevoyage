@@ -121,7 +121,8 @@ def init_tastevoyage():
         else:
             st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
     # Debugging-Ausgabe hinzufügen
-    print("Tastevoyage DataFrame:", st.session_state.df_tastevoyage)
+    print("Tastevoyage DataFrame nach dem Laden:")
+    print(st.session_state.df_tastevoyage)
 
 def init_filtered_df():
     if 'df_filtered' not in st.session_state:
@@ -196,8 +197,16 @@ def hauptanwendung():
     
     produktsuche(st.session_state.df_tastevoyage)  # Produktsuche-Funktion hinzufügen
 
+    # Debugging-Ausgabe hinzufügen
+    print("Tastevoyage DataFrame vor dem Filtern:")
+    print(st.session_state.df_tastevoyage)
+
     # Filtere die Daten basierend auf dem aktuellen Benutzer
     user_data = st.session_state.df_tastevoyage[st.session_state.df_tastevoyage['username'] == st.session_state['username']]
+    
+    # Debugging-Ausgabe hinzufügen
+    print("Gefilterte Benutzerdaten:")
+    print(user_data)
 
     if auswahl == "Hauptmenü":
         if not user_data.empty:
