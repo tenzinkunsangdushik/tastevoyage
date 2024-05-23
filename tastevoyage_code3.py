@@ -41,13 +41,12 @@ def bild_speichern_base64(bild):
 
 # Speichern oder Aktualisieren der CSV-Datei auf GitHub
 def speichern_oder_aktualisieren(df, pfad):
-    csv_content = df.to_csv(index=False)
     if pfad == DATA_FILE_MAIN:
-        st.session_state.github.write(pfad, csv_content, "Updated tastevoyage data")
+        st.session_state.github.write_df(pfad, df, "Updated tastevoyage data")
     elif pfad == FAVORITEN_PFAD:
-        st.session_state.github.write(pfad, csv_content, "Updated favorites data")
+        st.session_state.github.write_df(pfad, df, "Updated favorites data")
     else:
-        st.session_state.github.write(pfad, csv_content, "Updated data")
+        st.session_state.github.write_df(pfad, df, "Updated data")
 
 def login_page():
     """Login an existing user."""
@@ -184,7 +183,7 @@ def show_item(item, index, df, favoriten_df=None):
         st.experimental_rerun()
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
-    if 'Bilddaten' in df.columns:
+    if index in df.index:
         df.drop(index, inplace=True)
         speichern_oder_aktualisieren(df, pfad)
     else:
@@ -234,7 +233,7 @@ def hauptanwendung():
                 for idx in range(2):
                     if i + idx < len(user_favorites):
                         with cols[idx]:
-                            show_item(user_favorites.iloc(i + idx), i + idx, user_favorites)
+                            show_item(user_favorites.iloc[i + idx], i + idx, user_favorites)
     
     elif auswahl == "Statistiken":
         statistik_seite(user_data)
