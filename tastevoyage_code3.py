@@ -120,6 +120,8 @@ def init_tastevoyage():
             st.session_state.df_tastevoyage = st.session_state.github.read_df(DATA_FILE_MAIN)
         else:
             st.session_state.df_tastevoyage = pd.DataFrame(columns=DATA_COLUMNS_TV)
+    # Debugging-Ausgabe hinzufügen
+    print("Tastevoyage DataFrame:", st.session_state.df_tastevoyage)
 
 def init_filtered_df():
     if 'df_filtered' not in st.session_state:
