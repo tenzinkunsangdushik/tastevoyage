@@ -127,6 +127,11 @@ def init_tastevoyage():
     # Überprüfe, ob 'username' in den Spalten enthalten ist
     if 'username' not in st.session_state.df_tastevoyage.columns:
         print("Warnung: 'username' Spalte nicht im DataFrame vorhanden!")
+        # Füge 'username' Spalte hinzu, wenn sie fehlt
+        st.session_state.df_tastevoyage['username'] = None
+
+    # Zusätzliche Debugging-Ausgabe der Spalten
+    print("Spalten im DataFrame:", st.session_state.df_tastevoyage.columns)
 
 def init_filtered_df():
     if 'df_filtered' not in st.session_state:
