@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import hashlib
 import binascii
+import base64
 from github_contents import GithubContents
 import bcrypt
 from PIL import Image
@@ -15,65 +16,36 @@ DATA_FILE = "MyLoginTable.csv"
 DATA_FILE_MAIN = "tastevoyage.csv"
 DATA_FILE_FILTERED = 'filteredtastevoyage.csv'
 DATA_COLUMNS = ['username', 'name', 'password']
-DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad']
+DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bilddaten']
 FAVORITEN_PFAD = 'favoriten.csv'
 
-# Datenpfade und Initialisierung
-if not os.path.exists(BILD_ORDNER):
-    os.makedirs(BILD_ORDNER)
-if not os.path.exists(BENUTZER_DATEN_PFAD):
-    benutzer_df = pd.DataFrame(columns=['username', 'password'])
-    benutzer_df.to_csv(BENUTZER_DATEN_PFAD, index=False)
-else:
-    benutzer_df = pd.read_csv(BENUTZER_DATEN_PFAD)
+# Initialisiere Github-Verbindung
+def init_github():
+    """Initialize the GithubContents object."""
+    if 'github' not in st.session_state:
+        st.session_state.github = GithubContents(
+            st.secrets["github"]["owner"],
+            st.secrets["github"]["repo"],
+            st.secrets["github"]["token"])
+        print("github initialized")
 
-def make_hashes(password):
-    return hashlib.sha256(str.encode(password)).hexdigest()
-
-def check_hashes(password, hashed_text):
-    return make_hashes(password) == hashed_text
-
-def verify_login(username, password, benutzer_df):
-    user_info = benutzer_df[benutzer_df['username'] == username]
-    if not user_info.empty and check_hashes(password, user_info.iloc[0]['password']):
-        return True
-    return False
-
-def register_user(username, password, benutzer_df):
-    if username not in benutzer_df['username'].values:
-        benutzer_df = pd.concat([benutzer_df, pd.DataFrame([{'username': username, 'password': make_hashes(password)}])], ignore_index=True)
-        benutzer_df.to_csv(BENUTZER_DATEN_PFAD, index=False)
-        return True
-    return False
-
-
-def bild_speichern(bild, name):
+# Bild hochladen und in Base64 konvertieren
+def bild_speichern_base64(bild):
     if bild is not None:
-        bild_filename = name + "_" + bild.name
-        bild_path = os.path.join(BILD_ORDNER, bild_filename)
-        with open(bild_path, "wb") as f:
-            f.write(bild.getbuffer())
-        return os.path.join(BILD_ORDNER, bild_filename)
+        img_bytes = bild.read()
+        img_base64 = base64.b64encode(img_bytes).decode()
+        return img_base64
     return ""
 
-def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
-    if 'Bildpfad' in df.columns:
-        bildpath = df.at[index, 'Bildpfad']
-        if isinstance(bildpath, str) and bildpath and os.path.exists(bildpath):
-            os.remove(bildpath)
-    if index in df.index:
-        df.drop(index, inplace=True)
-        speichern_oder_aktualisieren(df, pfad)
-    else:
-        st.error(f"Index {index} not found in dataframe. Unable to delete.")
-
+# Speichern oder Aktualisieren der CSV-Datei auf GitHub
 def speichern_oder_aktualisieren(df, pfad):
+    csv_content = df.to_csv(index=False)
     if pfad == DATA_FILE_MAIN:
-        st.session_state.github.write_df(pfad, df, "Updated tastevoyage data")
+        st.session_state.github.write_file(pfad, csv_content, "Updated tastevoyage data")
     elif pfad == FAVORITEN_PFAD:
-        st.session_state.github.write_df(pfad, df, "Updated favorites data")
+        st.session_state.github.write_file(pfad, csv_content, "Updated favorites data")
     else:
-        df.to_csv(pfad, index=False)
+        st.session_state.github.write_file(pfad, csv_content, "Updated data")
 
 def login_page():
     """ Login an existing user. """
@@ -305,7 +277,6 @@ def produktsuche(df):
                 if i + idx < len(suchergebnisse):
                     with cols[idx]:
                         show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
-    )
 
 def main():
     init_github()  # Initialize the GithubContents object
