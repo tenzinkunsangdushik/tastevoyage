@@ -206,7 +206,7 @@ def show_item(item, index, df, favoriten_df=None):
 
 def hauptanwendung(benutzer_df):
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
-    auswahl = st.sidebar.radio("Menü:", ["Hauptmenü", "Favoriten", "Ausprobieren", "Statistiken"])
+    auswahl = st.sidebar.radio("Menü:", ["Hauptmenü", "Favoriten", "Statistiken"])
     
     if st.sidebar.button('Neues Produkt'):
         st.session_state['show_form'] = True
