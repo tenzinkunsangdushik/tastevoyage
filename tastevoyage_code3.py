@@ -43,11 +43,11 @@ def bild_speichern_base64(bild):
 def speichern_oder_aktualisieren(df, pfad):
     csv_content = df.to_csv(index=False)
     if pfad == DATA_FILE_MAIN:
-        st.session_state.github.write_file(pfad, csv_content, "Updated tastevoyage data")
+        st.session_state.github.write(pfad, csv_content, "Updated tastevoyage data")
     elif pfad == FAVORITEN_PFAD:
-        st.session_state.github.write_file(pfad, csv_content, "Updated favorites data")
+        st.session_state.github.write(pfad, csv_content, "Updated favorites data")
     else:
-        st.session_state.github.write_file(pfad, csv_content, "Updated data")
+        st.session_state.github.write(pfad, csv_content, "Updated data")
 
 def login_page():
     """Login an existing user."""
@@ -234,7 +234,7 @@ def hauptanwendung():
                 for idx in range(2):
                     if i + idx < len(user_favorites):
                         with cols[idx]:
-                            show_item(user_favorites.iloc[i + idx], i + idx, user_favorites)
+                            show_item(user_favorites.iloc(i + idx), i + idx, user_favorites)
     
     elif auswahl == "Statistiken":
         statistik_seite(user_data)
@@ -267,8 +267,6 @@ def hauptanwendung():
                 st.success("Produkt erfolgreich gespeichert!")
                 st.session_state['show_form'] = False
                 st.experimental_rerun()
-
-import matplotlib.pyplot as plt
 
 def statistik_seite(df):
     st.title("Statistiken")
