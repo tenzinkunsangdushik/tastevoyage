@@ -18,7 +18,7 @@ DATA_FILE = "MyLoginTable.csv"
 DATA_FILE_MAIN = "tastevoyage.csv"
 DATA_FILE_FILTERED = 'filteredtastevoyage.csv'
 DATA_COLUMNS = ['username', 'name', 'password']
-DATA_COLUMNS_TV = ['username', 'Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bilddaten']
+DATA_COLUMNS_TV = ['username', 'Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bildpfad']
 FAVORITEN_PFAD = 'favoriten.csv'
 
 # Initialisiere Github-Verbindung
@@ -31,12 +31,12 @@ def init_github():
             st.secrets["github"]["token"])
         print("github initialized")
 
-# Bild hochladen und in Base64 konvertieren
-def bild_speichern_base64(bild):
+# Bild speichern und Pfad zurückgeben
+def bild_speichern(bild, bild_name):
     if bild is not None:
-        img_bytes = bild.read()
-        img_base64 = base64.b64encode(img_bytes).decode()
-        return img_base64
+        bild_pfad = os.path.join(BILD_ORDNER, bild_name)
+        st.session_state.github.write_file(bild_pfad, bild.getvalue(), "Bild hochgeladen")
+        return bild_pfad
     return ""
 
 # Speichern oder Aktualisieren der CSV-Datei auf GitHub
@@ -140,8 +140,8 @@ def init_filtered_df():
             st.session_state.df_filtered = pd.DataFrame(columns=DATA_COLUMNS_TV)
 
 def show_item(item, index, df, favoriten_df=None):
-    if 'Bilddaten' not in item:
-        item['Bilddaten'] = ""
+    if 'Bildpfad' not in item:
+        item['Bildpfad'] = ""
     if 'Kategorie' not in item:
         item['Kategorie'] = ""
     if 'Name' not in item:
@@ -152,11 +152,9 @@ def show_item(item, index, df, favoriten_df=None):
         item['Notizen'] = ""
 
     try:
-        if isinstance(item['Bilddaten'], str) and item['Bilddaten']:  # Überprüfen, ob Bilddaten vorhanden und ein String sind
-            img_data = base64.b64decode(item['Bilddaten'])
-            image = Image.open(io.BytesIO(img_data))
-            image = image.resize((200, 400))  # Breite und Höhe festlegen
-            st.image(image, caption=item['Name'])
+        if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob Bildpfad vorhanden und ein String sind
+            image_url = st.session_state.github.get_file_url(item['Bildpfad'])
+            st.image(image_url, caption=item['Name'])
         else:
             st.write("Kein Bild vorhanden")
     except Exception as e:
@@ -249,18 +247,18 @@ def hauptanwendung():
             if submit_button:
                 if 'edit_index' in st.session_state:
                     if bild:
-                        bild_data = bild_speichern_base64(bild)
+                        bild_pfad = bild_speichern(bild, f"{st.session_state['username']}_{name}.jpg")
                     else:
-                        bild_data = st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bilddaten']
+                        bild_pfad = st.session_state.df_tastevoyage.iloc[st.session_state['edit_index']]['Bildpfad']
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Kategorie'] = kategorie
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Name'] = name
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Bewertung'] = bewertung
                     st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Notizen'] = notizen
-                    st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Bilddaten'] = bild_data
+                    st.session_state.df_tastevoyage.at[st.session_state['edit_index'], 'Bildpfad'] = bild_pfad
                     del st.session_state['edit_index']
                 else:
-                    bild_data = bild_speichern_base64(bild) if bild else ""
-                    neues_produkt = pd.DataFrame([[st.session_state['username'], kategorie, name, bewertung, notizen, bild_data]], columns=DATA_COLUMNS_TV)
+                    bild_pfad = bild_speichern(bild, f"{st.session_state['username']}_{name}.jpg") if bild else ""
+                    neues_produkt = pd.DataFrame([[st.session_state['username'], kategorie, name, bewertung, notizen, bild_pfad]], columns=DATA_COLUMNS_TV)
                     st.session_state.df_tastevoyage = pd.concat([st.session_state.df_tastevoyage, neues_produkt], ignore_index=True)
                 speichern_oder_aktualisieren(st.session_state.df_tastevoyage, DATA_FILE_MAIN)
                 st.success("Produkt erfolgreich gespeichert!")
