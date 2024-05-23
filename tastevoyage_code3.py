@@ -35,16 +35,14 @@ def init_github():
 def bild_speichern(bild, bild_name):
     if bild is not None:
         bild_pfad = os.path.join(BILD_ORDNER, bild_name)
-        st.session_state.github.write_file(bild_pfad, bild.getvalue(), "Bild hochgeladen")
+        st.session_state.github.write(bild_pfad, bild.read(), "Bild hochgeladen")
         return bild_pfad
     return ""
 
 # Speichern oder Aktualisieren der CSV-Datei auf GitHub
 def speichern_oder_aktualisieren(df, pfad):
-    if pfad == DATA_FILE_MAIN:
-        st.session_state.github.write_df(pfad, df, "Updated tastevoyage data")
-    elif pfad == FAVORITEN_PFAD:
-        st.session_state.github.write_df(pfad, df, "Updated favorites data")
+    if pfad == DATA_FILE_MAIN or pfad == FAVORITEN_PFAD or pfad == DATA_FILE:
+        st.session_state.github.write_df(pfad, df, f"Updated {pfad} data")
     else:
         st.session_state.github.write_df(pfad, df, "Updated data")
 
@@ -152,7 +150,7 @@ def show_item(item, index, df, favoriten_df=None):
         item['Notizen'] = ""
 
     try:
-        if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob Bildpfad vorhanden und ein String sind
+        if isinstance(item['Bildpfad'], str) and item['Bildpfad']:  # Überprüfen, ob Bildpfad vorhanden und ein String ist
             image_url = st.session_state.github.get_file_url(item['Bildpfad'])
             st.image(image_url, caption=item['Name'])
         else:
