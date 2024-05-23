@@ -7,6 +7,8 @@ import base64
 from github_contents import GithubContents
 import bcrypt
 from PIL import Image
+import matplotlib.pyplot as plt
+import io
 
 # Konfiguration und Hilfsfunktionen
 DATEN_PFAD = 'produkte.csv'
@@ -16,7 +18,7 @@ DATA_FILE = "MyLoginTable.csv"
 DATA_FILE_MAIN = "tastevoyage.csv"
 DATA_FILE_FILTERED = 'filteredtastevoyage.csv'
 DATA_COLUMNS = ['username', 'name', 'password']
-DATA_COLUMNS_TV = ['Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bilddaten']
+DATA_COLUMNS_TV = ['username', 'Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bilddaten']
 FAVORITEN_PFAD = 'favoriten.csv'
 
 # Initialisiere Github-Verbindung
@@ -48,7 +50,7 @@ def speichern_oder_aktualisieren(df, pfad):
         st.session_state.github.write_file(pfad, csv_content, "Updated data")
 
 def login_page():
-    """ Login an existing user. """
+    """Login an existing user."""
     st.title("Login")
     with st.form(key='login_form'):
         st.session_state['username'] = st.text_input("Username")
@@ -57,7 +59,7 @@ def login_page():
             authenticate(st.session_state.username, password)
 
 def register_page():
-    """ Register a new user. """
+    """Register a new user."""
     st.title("Register")
     with st.form(key='register_form'):
         new_username = st.text_input("New Username")
@@ -98,21 +100,12 @@ def authenticate(username, password):
         if bcrypt.checkpw(password.encode('utf8'), stored_hashed_password_bytes): 
             st.session_state['authentication'] = True
             st.success('Login successful')
-            st.rerun()
+            st.experimental_rerun()
         else:
             st.error('Incorrect password')
     else:
         st.error('Username not found')
 
-def init_github():
-    """Initialize the GithubContents object."""
-    if 'github' not in st.session_state:
-        st.session_state.github = GithubContents(
-            st.secrets["github"]["owner"],
-            st.secrets["github"]["repo"],
-            st.secrets["github"]["token"])
-        print("github initialized")
-    
 def init_credentials():
     """Initialize or load the dataframe."""
     if 'df_users' not in st.session_state:
@@ -167,7 +160,7 @@ def show_item(item, index, df, favoriten_df=None):
         st.session_state['edit_index'] = index
     elif option == "Löschen":
         bild_und_eintrag_loeschen(index, df, DATA_FILE_MAIN)
-        st.rerun()
+        st.experimental_rerun()
     elif option == "Zu Favoriten hinzufügen" and favoriten_df is not None:
         favoriten_df = pd.concat([favoriten_df, pd.DataFrame([item])], ignore_index=True)
         speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
@@ -176,7 +169,7 @@ def show_item(item, index, df, favoriten_df=None):
         favoriten_df.drop(index, inplace=True)
         speichern_oder_aktualisieren(favoriten_df, FAVORITEN_PFAD)
         st.success(f"{item['Name']} wurde aus den Favoriten entfernt!")
-        st.rerun()
+        st.experimental_rerun()
 
 def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
     if 'Bilddaten' in df.columns:
@@ -184,9 +177,6 @@ def bild_und_eintrag_loeschen(index, df, pfad=DATEN_PFAD):
         speichern_oder_aktualisieren(df, pfad)
     else:
         st.error(f"Index {index} not found in dataframe. Unable to delete.")
-        
-# Aktualisiere die DATA_COLUMNS_TV mit einer username Spalte
-DATA_COLUMNS_TV = ['username', 'Kategorie', 'Name', 'Bewertung', 'Notizen', 'Bilddaten']
 
 def hauptanwendung():
     st.title(f"Herzlich Willkommen, {st.session_state['username']}!")
@@ -256,7 +246,26 @@ def hauptanwendung():
                 speichern_oder_aktualisieren(st.session_state.df_tastevoyage, DATA_FILE_MAIN)
                 st.success("Produkt erfolgreich gespeichert!")
                 st.session_state['show_form'] = False
-                st.rerun()
+                st.experimental_rerun()
+
+import matplotlib.pyplot as plt
+
+def statistik_seite(df):
+    st.title("Statistiken")
+    
+    # Durchschnittsbewertung pro Kategorie
+    avg_bewertung = df.groupby('Kategorie')['Bewertung'].mean().sort_values()
+    st.subheader("Durchschnittsbewertung pro Kategorie")
+    fig, ax = plt.subplots()
+    avg_bewertung.plot(kind='barh', ax=ax)
+    st.pyplot(fig)
+
+    # Anzahl der Produkte pro Kategorie
+    anzahl_produkte = df['Kategorie'].value_counts()
+    st.subheader("Anzahl der Produkte pro Kategorie")
+    fig, ax = plt.subplots()
+    anzahl_produkte.plot(kind='bar', ax=ax)
+    st.pyplot(fig)
 
 def produktsuche(df):
     st.sidebar.subheader("Produktsuche")
@@ -273,6 +282,27 @@ def produktsuche(df):
                 if i + idx < len(suchergebnisse):
                     with cols[idx]:
                         show_item(suchergebnisse.iloc[i + idx], i + idx, suchergebnisse)
+
+def main():
+    init_github()  # Initialize the GithubContents object
+    init_credentials()  # Loads the credentials from the Github data repository
+
+    if 'authentication' not in st.session_state:
+        st.session_state['authentication'] = False
+
+    if not st.session_state['authentication']:
+        options = st.sidebar.selectbox("Select a page", ["Login", "Register"])
+        if options == "Login":
+            login_page()
+        elif options == "Register":
+            register_page()
+    else:
+        with st.sidebar:
+            logout_button = st.button("Logout")
+            if logout_button:
+                st.session_state['authentication'] = False
+                st.experimental_rerun()
+        hauptanwendung()
 
 if __name__ == "__main__":
     main()
